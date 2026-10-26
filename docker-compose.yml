@@ -1,0 +1,11 @@
+services:
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8030:8000"
+    volumes:
+      - ./data:/app/data
+    environment:
+      DB_PATH: /app/data/anime.db
