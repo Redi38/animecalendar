@@ -17,7 +17,7 @@ from typing import Any
 
 from app.db import Database
 from app.i18n import has_cyrillic, normalize
-from app.providers.anilist import AniListClient, AniListError, parse_media, parse_relations
+from app.providers.anilist import AniListClient, AniListError, is_tba, parse_media, parse_relations
 from app.providers.shikimori import ShikimoriClient
 from app.seasons import season_of, ttl_seconds
 from app.services import dto
@@ -26,6 +26,10 @@ from app.services.related import CHAIN_TYPES, MAX_DEPTH, walk
 logger = logging.getLogger(__name__)
 
 MAX_PAGES = 12  # 600 тайтлов на сезон — с запасом
+TBA_KEY = "tba"
+TBA_TTL = 6 * 3600
+MAX_TBA_PAGES = 10  # самые популярные 500 анонсов; без даты из них остаётся лишь часть
+TBA_WINDOW = 1800  # запись считается свежей, если её сохранила выборка не раньше, чем за столько секунд
 RU_RECHECK = 7 * 86400  # как часто повторно искать русское название, которого нет
 DESC_RECHECK = 14 * 86400
 RELATIONS_TTL_ACTIVE = 12 * 3600  # анонсы и идущие тайтлы меняются часто
@@ -180,6 +184,42 @@ class Catalog:
             logger.info("сезон %s обновлён: %d тайтлов", key, len(ids))
             await self._enrich_ru(sorted(ids), wait=8.0)
 
+    # --- анонсы без даты --------------------------------------------------------
+
+    async def tba(self) -> tuple[list[dict], int | None]:
+        synced = await self.db.season_synced_at(TBA_KEY)
+        if synced is None:
+            await self._refresh_tba()
+        elif self.now() - synced > TBA_TTL and TBA_KEY not in self._refreshing:
+            self._refreshing.add(TBA_KEY)
+            self._spawn(self._refresh_tba_quietly())
+        synced = await self.db.season_synced_at(TBA_KEY)
+        return await self.db.tba_titles((synced or 0) - TBA_WINDOW), synced
+
+    async def _refresh_tba_quietly(self) -> None:
+        try:
+            await self._refresh_tba()
+        except AniListError as e:
+            logger.warning("не удалось обновить анонсы без даты: %s", e)
+        finally:
+            self._refreshing.discard(TBA_KEY)
+
+    async def _refresh_tba(self) -> None:
+        async with self._locks[TBA_KEY]:
+            synced = await self.db.season_synced_at(TBA_KEY)
+            if synced is not None and self.now() - synced <= TBA_TTL:
+                return  # пока ждали замок, анонсы уже обновил другой запрос
+            media: list[dict] = []
+            page, has_next = 1, True
+            while has_next and page <= MAX_TBA_PAGES:
+                chunk, has_next = await self.anilist.tba_page(page)
+                media.extend(m for m in chunk if is_tba(m))
+                page += 1
+            ids = await self._store(media)
+            await self.db.mark_season(TBA_KEY, self.now(), len(ids))
+            logger.info("анонсы без даты обновлены: %d тайтлов", len(ids))
+            await self._enrich_ru(sorted(ids), wait=8.0)
+
     async def prewarm(self) -> None:
         """Текущий и следующий сезоны — к моменту первого визита."""
         from app.seasons import shift
@@ -191,6 +231,10 @@ class Catalog:
                 await self.season(y, s)
             except AniListError as e:
                 logger.warning("прогрев сезона %s-%s не удался: %s", y, s, e)
+        try:
+            await self.tba()
+        except AniListError as e:
+            logger.warning("прогрев анонсов без даты не удался: %s", e)
 
     # --- карточки --------------------------------------------------------------
 

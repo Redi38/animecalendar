@@ -7,6 +7,7 @@ import { toast } from "./ui/toast.js";
 import { debounce, h } from "./util.js";
 import { renderSearch } from "./views/search.js";
 import { renderSeason } from "./views/season.js";
+import { renderTba } from "./views/tba.js";
 import { renderUpcoming } from "./views/upcoming.js";
 import { renderWatched } from "./views/watched.js";
 
@@ -108,6 +109,7 @@ function parseRoute(hash) {
       return { name: "home" };
     }
   }
+  if (path === "/tba") return { name: "tba" };
   if (path === "/watched") return { name: "watched" };
   if (path === "/upcoming") return { name: "upcoming" };
   return { name: "home" };
@@ -128,7 +130,7 @@ function showPage(route) {
   current = null;
   window.scrollTo(0, 0);
   baseHash = location.hash || "#/";
-  markNav(route.name === "season" ? "season" : route.name);
+  markNav(route.name === "season" || route.name === "tba" ? "season" : route.name);
 
   if (route.name === "home") {
     const { year, season } = ctx.meta.current;
@@ -138,6 +140,7 @@ function showPage(route) {
 
   const titles = {
     season: () => `${ctx.meta.seasons.find((s) => s.slug === route.slug)?.label} ${route.year}`,
+    tba: () => "Анонсы без даты",
     watched: () => "Просмотрено",
     upcoming: () => "Мои анонсы",
     search: () => `Поиск: ${route.q}`,
@@ -146,6 +149,7 @@ function showPage(route) {
   document.title = pageTitle;
 
   if (route.name === "season") current = renderSeason(view, route, ctx, isCurrent);
+  else if (route.name === "tba") current = renderTba(view, ctx, isCurrent);
   else if (route.name === "watched") current = renderWatched(view, ctx, isCurrent);
   else if (route.name === "upcoming") current = renderUpcoming(view, ctx, isCurrent);
   else if (route.name === "search") {

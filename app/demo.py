@@ -247,6 +247,42 @@ class DemoAniList:
         chunk = ids[(page - 1) * size : page * size]
         return [m for i in chunk if (m := self.data.media(i))], page * size < len(ids)
 
+    async def tba_page(self, page: int) -> tuple[list[dict], bool]:
+        """Пара вымышленных анонсов без даты, чтобы вкладка не была пустой в демо-режиме."""
+        if page > 1:
+            return [], False
+        demo = [
+            (BASE_ID + 900, "Хроники звёздного садовника", "Chronicles of the Star Gardener", 3200),
+            (BASE_ID + 901, "Последний поезд до полнолуния", "Last Train to the Full Moon", 2100),
+        ]
+        media: list[dict[str, Any]] = [
+            {
+                "id": i,
+                "idMal": None,
+                "type": "ANIME",
+                "isAdult": False,
+                "title": {"romaji": en, "english": en, "native": None},
+                "format": "TV",
+                "status": "NOT_YET_RELEASED",
+                "season": None,
+                "seasonYear": None,
+                "startDate": {"year": None, "month": None, "day": None},
+                "episodes": None,
+                "duration": None,
+                "source": "ORIGINAL",
+                "genres": ["Fantasy"],
+                "averageScore": None,
+                "popularity": pop,
+                "coverImage": {"large": None, "color": None},
+                "studios": {"nodes": []},
+                "nextAiringEpisode": None,
+                "description": f"<i>Демо-данные.</i><br>Анонс «{ru}» пока без даты выхода.",
+                "relations": {"edges": []},
+            }
+            for i, ru, en, pop in demo
+        ]
+        return media, False
+
     async def by_ids(self, ids: list[int]) -> list[dict]:
         return [m for i in ids if (m := self.data.media(i))]
 

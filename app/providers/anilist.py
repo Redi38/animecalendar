@@ -85,6 +85,19 @@ query ($season: MediaSeason, $year: Int, $page: Int, $per: Int) {
     + _MEDIA_FRAGMENT
 )
 
+# Анонсы без даты: сортировка по популярности, «без даты» отбирается в коде (is_tba).
+Q_TBA = (
+    """
+query ($page: Int, $per: Int) {
+  Page(page: $page, perPage: $per) {
+    pageInfo { hasNextPage }
+    media(type: ANIME, status: NOT_YET_RELEASED, isAdult: false, sort: [POPULARITY_DESC, ID]) { ...M }
+  }
+}
+"""
+    + _MEDIA_FRAGMENT
+)
+
 Q_BY_IDS = (
     """
 query ($ids: [Int], $per: Int) {
@@ -177,6 +190,11 @@ def parse_media(media: dict) -> dict[str, Any]:
     return row
 
 
+def is_tba(media: dict) -> bool:
+    """Анонс без даты: у тайтла нет ни сезона, ни года премьеры."""
+    return not (media.get("seasonYear") or (media.get("startDate") or {}).get("year"))
+
+
 def parse_relations(media: dict, *, allow_adult: bool = False) -> tuple[list[tuple[int, str]], list[dict[str, Any]]]:
     """Связи тайтла: [(target_id, relation_type)] и неполные записи целевых тайтлов.
 
@@ -254,6 +272,11 @@ class AniListClient:
 
     async def season_page(self, season: str, year: int, page: int) -> tuple[list[dict], bool]:
         data = await self._query(Q_SEASON, {"season": season, "year": year, "page": page, "per": PER_PAGE})
+        block = data.get("Page") or {}
+        return block.get("media") or [], bool((block.get("pageInfo") or {}).get("hasNextPage"))
+
+    async def tba_page(self, page: int) -> tuple[list[dict], bool]:
+        data = await self._query(Q_TBA, {"page": page, "per": PER_PAGE})
         block = data.get("Page") or {}
         return block.get("media") or [], bool((block.get("pageInfo") or {}).get("hasNextPage"))
 

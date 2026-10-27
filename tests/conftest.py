@@ -46,6 +46,10 @@ class CountingAniList(DemoAniList):
         self._hit("season_page", season, year, page)
         return await super().season_page(season, year, page)
 
+    async def tba_page(self, page):
+        self._hit("tba_page", page)
+        return await super().tba_page(page)
+
     async def by_ids(self, ids):
         self._hit("by_ids", tuple(ids))
         return await super().by_ids(ids)

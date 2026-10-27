@@ -85,3 +85,12 @@ def test_adult_queries_drop_only_the_filter():
     for plain, adult in ((Q_BY_MAL_IDS, Q_BY_MAL_IDS_ADULT), (Q_SEARCH, Q_SEARCH_ADULT)):
         assert "isAdult: false" in plain
         assert "isAdult: false" not in adult
+
+
+def test_is_tba_needs_neither_season_year_nor_start_year():
+    from app.providers.anilist import is_tba
+
+    assert is_tba({"seasonYear": None, "startDate": {"year": None, "month": None, "day": None}})
+    assert is_tba({})
+    assert not is_tba({"seasonYear": 2027, "startDate": {"year": None}})
+    assert not is_tba({"seasonYear": None, "startDate": {"year": 2027, "month": None, "day": None}})

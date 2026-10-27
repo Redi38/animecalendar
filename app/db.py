@@ -142,6 +142,15 @@ class Database:
         ) as cur:
             return [dict(r) async for r in cur]
 
+    async def tba_titles(self, since: int) -> list[dict[str, Any]]:
+        """Анонсы без сезона и даты, подтверждённые свежей выборкой (synced_at >= since)."""
+        async with self.conn.execute(
+            "SELECT * FROM titles WHERE status = 'NOT_YET_RELEASED' AND season_year IS NULL "
+            "AND start_year IS NULL AND partial = 0 AND synced_at >= ? ORDER BY popularity DESC, id",
+            (since,),
+        ) as cur:
+            return [dict(r) async for r in cur]
+
     async def search_local(self, query: str, limit: int = 60) -> list[dict[str, Any]]:
         """Все слова запроса должны встретиться в названиях (на любом языке)."""
         tokens = [search_stem(t) for t in normalize(query).split()]

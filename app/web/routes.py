@@ -64,6 +64,15 @@ async def get_season(year: int, season: str, catalog: CatalogDep) -> dict:
     }
 
 
+@router.get("/tba")
+async def get_tba(catalog: CatalogDep) -> dict:
+    rows, synced_at = await catalog.tba()
+    now = catalog.now()
+    from app.services import dto
+
+    return {"synced_at": synced_at, "total": len(rows), "items": [dto.card(r, now=now) for r in rows]}
+
+
 @router.get("/title/{title_id}")
 async def get_title(title_id: TitleId, catalog: CatalogDep) -> dict:
     try:

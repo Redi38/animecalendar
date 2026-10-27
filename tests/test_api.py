@@ -90,3 +90,11 @@ async def test_security_headers_and_static_pages(client: httpx.AsyncClient):
 async def test_rate_limit_on_search(client: httpx.AsyncClient):
     codes = [(await client.get("/api/search", params={"q": "кофейня"})).status_code for _ in range(62)]
     assert codes[0] == 200 and codes[-1] == 429
+
+
+async def test_tba_returns_undated_cards(client: httpx.AsyncClient):
+    r = await client.get("/api/tba")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["total"] == len(data["items"]) == 2
+    assert all(i["start"] is None for i in data["items"])

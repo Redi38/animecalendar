@@ -235,3 +235,21 @@ async def test_search_matches_other_grammatical_forms(catalog: Catalog):
     # «Последний рейс на Луну» — ищем по начальной форме «луна»
     found = [c["title"] for c in await catalog.search("луна")]
     assert found[0] == "Последний рейс на Луну"
+
+
+async def test_tba_lists_undated_announcements_and_is_cached(catalog: Catalog, anilist):
+    rows, synced = await catalog.tba()
+    assert synced is not None and len(rows) == 2
+    assert all(r["season_year"] is None and r["start_year"] is None for r in rows)
+    assert [r["popularity"] for r in rows] == sorted((r["popularity"] for r in rows), reverse=True)
+    await catalog.tba()
+    assert anilist.count("tba_page") == 1
+
+
+async def test_stale_tba_is_refreshed_in_background(catalog: Catalog, anilist, clock):
+    await catalog.tba()
+    clock.advance(7 * 3600)  # TTL анонсов без даты — 6 часов
+    rows, _ = await catalog.tba()
+    assert len(rows) == 2, "устаревший список отдаётся сразу"
+    await catalog.drain()
+    assert anilist.count("tba_page") == 2

@@ -77,9 +77,14 @@ function seasonNav(meta, year, slug) {
     "div",
     { class: "season-nav" },
     h("div", { class: "year-nav" }, arrow(-1, canPrev, "Предыдущий сезон"), select, arrow(1, canNext, "Следующий сезон")),
-    h("div", { class: "season-tabs", role: "navigation", "aria-label": "Сезоны года" }, tabs),
+    h("div", { class: "season-tabs", role: "navigation", "aria-label": "Сезоны года и анонсы без даты" }, [...tabs, tbaTab(false)]),
     h("a", { class: "btn btn-ghost", href: `#/season/${current.year}/${current.season.toLowerCase()}` }, "К текущему сезону"),
   );
+}
+
+/** Вкладка «Без даты» рядом с сезонами: анонсы, у которых ещё нет ни сезона, ни даты. */
+export function tbaTab(active) {
+  return h("a", { class: "season-tab", href: "#/tba", "aria-current": active ? "page" : null }, "Без даты");
 }
 
 function chipButton(label, active, onclick) {
