@@ -9,6 +9,7 @@ function groupItems(items) {
   };
   for (const item of items) {
     if (item.status === "RELEASING") add("0-now", "Выходит сейчас", item);
+    else if (item.status === "FINISHED") add("0-recent", "Недавно вышло", item);
     else if (!item.start) add("9-tbd", "Дата не объявлена", item);
     else {
       const key = `1-${item.start.slice(0, item.start_precision === "year" ? 4 : 7)}`;
@@ -48,56 +49,76 @@ export function renderUpcoming(root, ctx, isCurrent) {
     h(
       "p",
       { class: "lead" },
-      `Связанные тайтлы по ${store.size()} ${plural(store.size(), ["просмотренному", "просмотренным", "просмотренным"])}. Показываем только то, что ещё не вышло или выходит сейчас.`,
+      `Связанные тайтлы по ${store.size()} ${plural(store.size(), ["просмотренному", "просмотренным", "просмотренным"])}. Показываем то, что ещё не вышло, выходит сейчас или вышло за последние 45 дней.`,
     ),
     body,
   );
+
+  // «Новое» — то, что не видели в прошлые визиты. При самом первом визите ничего не подсвечиваем.
+  // Обход связей может идти несколькими вызовами, поэтому подсветка копится между перерисовками.
+  const firstVisit = !store.seenReady();
+  const fresh = new Set();
+
+  function paint(data) {
+    if (!firstVisit) {
+      for (const item of data.items) if (!store.isSeen(item.id)) fresh.add(item.id);
+    }
+    store.markSeen(data.items.map((i) => i.id));
+    ctx.updateBadge();
+
+    const parts = [];
+    if (data.degraded) {
+      parts.push(
+        h(
+          "div",
+          { class: "notice", role: "status" },
+          "AniList сейчас отвечает не на все запросы, поэтому список может быть неполным. Обновите страницу чуть позже.",
+        ),
+      );
+    }
+    if (data.incomplete) {
+      parts.push(
+        h(
+          "div",
+          { class: "notice", role: "status" },
+          "Связи по вашему списку ещё догружаются: цепочки сезонов и фильмов длинные. Список дополнится сам, страницу обновлять не нужно.",
+        ),
+      );
+    }
+    if (!data.items.length) {
+      parts.push(
+        h(
+          "div",
+          { class: "empty" },
+          data.incomplete
+            ? "Пока ничего не нашли, ищем дальше."
+            : "Для вашего списка пока нет анонсированных продолжений. Как только студии что-то объявят, это появится здесь.",
+        ),
+      );
+    } else {
+      for (const g of groupItems(data.items)) {
+        parts.push(
+          h(
+            "section",
+            { class: "day-group" },
+            h("h2", { class: "day-title" }, g.title),
+            h(
+              "div",
+              { class: "grid" },
+              g.items.map((item) => titleCard(item, { showDate: true, showRelation: true, isNew: fresh.has(item.id) })),
+            ),
+          ),
+        );
+      }
+    }
+    clear(body).append(...parts);
+  }
 
   ctx
     .loadRelated()
     .then((data) => {
       if (!isCurrent()) return;
-      // «Новое» — то, что не видели в прошлые визиты. При самом первом визите ничего не подсвечиваем.
-      const firstVisit = !store.seenReady();
-      const fresh = new Set(firstVisit ? [] : data.items.filter((i) => !store.isSeen(i.id)).map((i) => i.id));
-      store.markSeen(data.items.map((i) => i.id));
-      ctx.updateBadge();
-
-      const parts = [];
-      if (data.degraded) {
-        parts.push(
-          h(
-            "div",
-            { class: "notice", role: "status" },
-            "AniList сейчас отвечает не на все запросы, поэтому список может быть неполным. Обновите страницу чуть позже.",
-          ),
-        );
-      }
-      if (!data.items.length) {
-        parts.push(
-          h(
-            "div",
-            { class: "empty" },
-            "Для вашего списка пока нет анонсированных продолжений. Как только студии что-то объявят, это появится здесь.",
-          ),
-        );
-      } else {
-        for (const g of groupItems(data.items)) {
-          parts.push(
-            h(
-              "section",
-              { class: "day-group" },
-              h("h2", { class: "day-title" }, g.title),
-              h(
-                "div",
-                { class: "grid" },
-                g.items.map((item) => titleCard(item, { showDate: true, showRelation: true, isNew: fresh.has(item.id) })),
-              ),
-            ),
-          );
-        }
-      }
-      clear(body).append(...parts);
+      paint(data);
     })
     .catch((err) => {
       if (!isCurrent()) return;
@@ -111,5 +132,10 @@ export function renderUpcoming(root, ctx, isCurrent) {
       );
     });
 
-  return {};
+  return {
+    // Вызывается, когда обход связей продвинулся: перерисовываем список.
+    refresh: () => {
+      if (isCurrent() && ctx.relatedData) paint(ctx.relatedData);
+    },
+  };
 }

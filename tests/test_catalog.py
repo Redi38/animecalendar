@@ -1,4 +1,5 @@
 import asyncio
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -180,6 +181,8 @@ async def test_related_finds_announced_sequels_through_a_chain(catalog: Catalog)
     assert got[LANTERN[2]]["depth"] == 2
     assert got[LANTERN[2]]["relation_ru"] == "Продолжение"
     assert result["degraded"] is False
+    assert {i["id"] for i in result["items"]} <= set(result["linked"])
+    assert LANTERN[0] not in result["linked"]
 
 
 async def test_related_skips_finished_titles_and_what_is_already_watched(catalog: Catalog):
@@ -253,3 +256,36 @@ async def test_stale_tba_is_refreshed_in_background(catalog: Catalog, anilist, c
     assert len(rows) == 2, "устаревший список отдаётся сразу"
     await catalog.drain()
     assert anilist.count("tba_page") == 2
+
+
+async def test_related_reports_incomplete_when_budget_runs_out_and_converges(catalog: Catalog, monkeypatch):
+    full = await catalog.related([LANTERN[0]])  # эталон: без ограничения бюджета
+    assert full["incomplete"] is False
+
+    monkeypatch.setattr("app.services.catalog.FETCH_BUDGET", 1)
+    # свежая БД, чтобы ничего не осталось в кэше от эталонного вызова
+    await catalog.db.conn.execute("UPDATE titles SET relations_synced_at = NULL")
+    await catalog.db.conn.commit()
+
+    result = await catalog.related([LANTERN[0]])
+    assert result["incomplete"] is True
+
+    for _ in range(30):
+        if not result["incomplete"]:
+            break
+        result = await catalog.related([LANTERN[0]])
+    assert result["incomplete"] is False
+    assert [i["id"] for i in result["items"]] == [i["id"] for i in full["items"]]
+
+
+async def test_related_shows_a_title_that_came_out_a_few_days_ago(catalog: Catalog):
+    await catalog.related([LANTERN[0]])
+    today = datetime.fromtimestamp(catalog.now(), UTC).date() - timedelta(days=5)
+    await catalog.db.conn.execute(
+        "UPDATE titles SET status = 'FINISHED', start_year = ?, start_month = ?, start_day = ?, synced_at = ? WHERE id = ?",
+        (today.year, today.month, today.day, catalog.now(), LANTERN[2]),
+    )
+    await catalog.db.conn.commit()
+    result = await catalog.related([LANTERN[0]])
+    got = {i["id"]: i for i in result["items"]}
+    assert LANTERN[2] in got and got[LANTERN[2]]["status"] == "FINISHED"

@@ -21,7 +21,7 @@ from app.providers.anilist import AniListClient, AniListError, is_tba, parse_med
 from app.providers.shikimori import ShikimoriClient
 from app.seasons import season_of, ttl_seconds
 from app.services import dto
-from app.services.related import CHAIN_TYPES, MAX_DEPTH, walk
+from app.services.related import CHAIN_TYPES, MAX_DEPTH, released_recently, walk
 
 logger = logging.getLogger(__name__)
 
@@ -372,15 +372,19 @@ class Catalog:
         """Анонсированные и выходящие тайтлы, связанные с просмотренными.
 
         Идём по связям AniList до MAX_DEPTH шагов; недостающие и устаревшие данные
-        докачиваем пачками (не больше FETCH_BUDGET тайтлов за вызов).
+        докачиваем пачками (не больше FETCH_BUDGET тайтлов за вызов). Если бюджета не хватило,
+        в ответе incomplete=true: клиенту стоит повторить вызов, и обход продолжится с места остановки.
         """
         watched = list(dict.fromkeys(watched_ids))
         watched_set = set(watched)
         budget = FETCH_BUDGET
         degraded = False
+        incomplete = False  # бюджет запросов кончился раньше, чем обошли все связи: нужен ещё вызов
 
         async def fetch(ids: list[int]) -> None:
-            nonlocal budget, degraded
+            nonlocal budget, degraded, incomplete
+            if len(ids) > budget:
+                incomplete = True
             ids = ids[:budget]
             if not ids:
                 return
@@ -417,9 +421,15 @@ class Catalog:
             await fetch(refresh)
             rows = await self.db.get_titles(list(hits))
 
+        # В список попадает то, что ещё не вышло, выходит сейчас или вышло совсем недавно.
+        today = datetime.fromtimestamp(self.now(), UTC).date()
+
+        def shown(row: dict[str, Any]) -> bool:
+            return row["status"] in ANNOUNCED or released_recently(row, today)
+
         # Русские названия нужны и анонсам, и просмотренным тайтлам, из которых они выросли («из «…»»).
-        via_ids = {h.via for h in hits.values() if h.target in rows and rows[h.target]["status"] in ANNOUNCED}
-        announced = [t for t, r in rows.items() if r["status"] in ANNOUNCED]
+        via_ids = {h.via for h in hits.values() if h.target in rows and shown(rows[h.target])}
+        announced = [t for t, r in rows.items() if shown(r)]
         await self._enrich_ru([*announced, *via_ids], wait=6.0)
         rows = await self.db.get_titles(list(hits))
         sources = await self.db.get_titles(list(via_ids))
@@ -428,7 +438,7 @@ class Catalog:
         items = []
         for target, hit in hits.items():
             row = rows.get(target)
-            if row is None or row["status"] not in ANNOUNCED:
+            if row is None or not shown(row):
                 continue
             item = dto.relation_entry(row, hit.relation, now=now)
             src = sources.get(hit.via)
@@ -437,4 +447,11 @@ class Catalog:
             item["depth"] = hit.depth
             items.append(item)
         items.sort(key=lambda i: (dto.start_sort_key(i["start"]), -i["popularity"]))
-        return {"items": items, "watched": len(watched_set), "degraded": degraded}
+        return {
+            "items": items,
+            "watched": len(watched_set),
+            "degraded": degraded,
+            "incomplete": incomplete,
+            # все связанные тайтлы любого статуса: по ним в сезонной сетке ставится отметка «★»
+            "linked": sorted(hits),
+        }

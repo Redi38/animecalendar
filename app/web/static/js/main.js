@@ -32,6 +32,31 @@ function listKey() {
   return store.ids().sort((a, b) => a - b).join(",");
 }
 
+const RELATED_RETRY_MS = 3000;
+const RELATED_MAX_RETRIES = 20;
+
+// Сервер за один вызов докачивает ограниченное число тайтлов. Пока он сообщает incomplete,
+// повторяем запрос: каждый раз обход связей продвигается дальше.
+function scheduleRelatedRetry(key) {
+  if (ctx._retryKey !== key) {
+    ctx._retryKey = key;
+    ctx._retries = 0;
+  }
+  if (ctx._retries >= RELATED_MAX_RETRIES) return;
+  ctx._retries += 1;
+  setTimeout(() => {
+    if (listKey() !== key) return;
+    loadRelated()
+      .then(() => {
+        updateBadge();
+        current?.refresh?.();
+      })
+      .catch(() => {
+        /* вкладка анонсов сама покажет ошибку, когда её откроют */
+      });
+  }, RELATED_RETRY_MS);
+}
+
 function loadRelated() {
   const key = listKey();
   if (!key) {
@@ -40,7 +65,7 @@ function loadRelated() {
     ctx._relatedKey = "";
     return Promise.resolve(ctx.relatedData);
   }
-  if (ctx.relatedData && ctx._relatedKey === key && !ctx.relatedData.degraded) return Promise.resolve(ctx.relatedData);
+  if (ctx.relatedData && ctx._relatedKey === key && !ctx.relatedData.degraded && !ctx.relatedData.incomplete) return Promise.resolve(ctx.relatedData);
   if (ctx._relatedPromise && ctx._relatedPromiseKey === key) return ctx._relatedPromise;
 
   ctx._relatedPromiseKey = key;
@@ -50,7 +75,9 @@ function loadRelated() {
       if (listKey() !== key) return loadRelated(); // список изменился, пока шёл запрос
       ctx.relatedData = data;
       ctx._relatedKey = key;
-      ctx.relatedIds = new Set(data.items.map((i) => i.id));
+      // «★» ставится по всем связанным тайтлам, в том числе уже вышедшим, а не только по анонсам
+      ctx.relatedIds = new Set([...data.items.map((i) => i.id), ...(data.linked || [])]);
+      if (data.incomplete) scheduleRelatedRetry(key);
       return data;
     })
     .finally(() => {

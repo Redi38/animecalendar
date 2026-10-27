@@ -4,14 +4,33 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import date
+from typing import Any
 
 # По этим связям идём цепочкой: продолжение продолжения, предыстория предыстории и т. д.
 CHAIN_TYPES: frozenset[str] = frozenset({"SEQUEL", "PREQUEL", "SIDE_STORY", "SPIN_OFF", "PARENT"})
-# Эти связи берём только непосредственно от просмотренного тайтла. Идти дальше нельзя:
-# «альтернативные версии» и «сборники» склеивают в один клубок целые франшизы.
+# Эти связи берём от любого тайтла цепочки, но дальше по ним не идём: «альтернативные версии»
+# и «сборники» склеивают в один клубок целые франшизы.
 LEAF_TYPES: frozenset[str] = frozenset({"ALTERNATIVE", "SUMMARY", "COMPILATION", "CONTAINS"})
 
-MAX_DEPTH = 3
+MAX_DEPTH = 8  # фильм может быть связан с просмотренным через несколько сезонов, спешлов и спин-оффов
+
+
+RECENT_DAYS = 45  # фильм или сезон, вышедший не раньше, чем столько дней назад, ещё считаем новинкой
+
+
+def released_recently(row: Mapping[str, Any], today: date, days: int = RECENT_DAYS) -> bool:
+    """Тайтл уже вышел (FINISHED), но совсем недавно: его ещё стоит показать среди анонсов."""
+    if row.get("status") != "FINISHED":
+        return False
+    y, m, d = row.get("start_year"), row.get("start_month"), row.get("start_day")
+    if not (y and m and d):
+        return False
+    try:
+        age = (today - date(y, m, d)).days
+    except ValueError:
+        return False
+    return 0 <= age <= days
 
 
 @dataclass
@@ -40,8 +59,6 @@ def walk(
                 for target, rel in edges.get(node, ()):
                     leaf = rel in LEAF_TYPES
                     if not leaf and rel not in CHAIN_TYPES:
-                        continue
-                    if leaf and depth > 1:
                         continue
                     if target in seen or target in watched_set:
                         continue
