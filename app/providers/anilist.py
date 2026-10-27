@@ -118,6 +118,10 @@ query ($q: String, $per: Int) {
     + _MEDIA_FRAGMENT
 )
 
+# Те же запросы без фильтра isAdult (настройка ALLOW_ADULT). Календарь сезонов фильтр сохраняет.
+Q_BY_MAL_IDS_ADULT = Q_BY_MAL_IDS.replace(", isAdult: false", "")
+Q_SEARCH_ADULT = Q_SEARCH.replace(", isAdult: false", "")
+
 
 # --- разбор ответа -----------------------------------------------------------
 
@@ -173,10 +177,10 @@ def parse_media(media: dict) -> dict[str, Any]:
     return row
 
 
-def parse_relations(media: dict) -> tuple[list[tuple[int, str]], list[dict[str, Any]]]:
+def parse_relations(media: dict, *, allow_adult: bool = False) -> tuple[list[tuple[int, str]], list[dict[str, Any]]]:
     """Связи тайтла: [(target_id, relation_type)] и неполные записи целевых тайтлов.
 
-    Берём только аниме (манга и ранобэ нам не нужны) и без взрослого контента.
+    Берём только аниме (манга и ранобэ нам не нужны); взрослый контент — только при allow_adult.
     """
     edges: list[tuple[int, str]] = []
     nodes: list[dict[str, Any]] = []
@@ -185,7 +189,7 @@ def parse_relations(media: dict) -> tuple[list[tuple[int, str]], list[dict[str, 
         rel = (edge or {}).get("relationType")
         if not node.get("id") or not rel:
             continue
-        if node.get("type") != "ANIME" or node.get("isAdult"):
+        if node.get("type") != "ANIME" or (node.get("isAdult") and not allow_adult):
             continue
         edges.append((node["id"], rel))
         nodes.append(_node_row(node, partial=True))
@@ -196,7 +200,10 @@ def parse_relations(media: dict) -> tuple[list[tuple[int, str]], list[dict[str, 
 
 
 class AniListClient:
-    def __init__(self, url: str, user_agent: str, client: httpx.AsyncClient | None = None) -> None:
+    def __init__(
+        self, url: str, user_agent: str, client: httpx.AsyncClient | None = None, *, allow_adult: bool = False
+    ) -> None:
+        self._allow_adult = allow_adult
         self._url = url
         self._client = client or httpx.AsyncClient(
             timeout=httpx.Timeout(20.0, connect=8.0),
@@ -262,10 +269,12 @@ class AniListClient:
         out: list[dict] = []
         for i in range(0, len(ids), PER_PAGE):
             chunk = ids[i : i + PER_PAGE]
-            data = await self._query(Q_BY_MAL_IDS, {"ids": chunk, "per": PER_PAGE})
+            data = await self._query(
+                Q_BY_MAL_IDS_ADULT if self._allow_adult else Q_BY_MAL_IDS, {"ids": chunk, "per": PER_PAGE}
+            )
             out.extend((data.get("Page") or {}).get("media") or [])
         return out
 
     async def search(self, q: str, limit: int = 12) -> list[dict]:
-        data = await self._query(Q_SEARCH, {"q": q, "per": limit})
+        data = await self._query(Q_SEARCH_ADULT if self._allow_adult else Q_SEARCH, {"q": q, "per": limit})
         return (data.get("Page") or {}).get("media") or []

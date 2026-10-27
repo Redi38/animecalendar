@@ -44,12 +44,16 @@ def build_catalog(cfg: Settings) -> Catalog:
             DemoAniList(),  # type: ignore[arg-type]
             DemoShikimori(),  # type: ignore[arg-type]
             shikimori_base=cfg.SHIKIMORI_BASE,
+            allow_adult=cfg.ALLOW_ADULT,
         )
     return Catalog(
         Database(cfg.DB_PATH),
-        AniListClient(cfg.ANILIST_URL, cfg.HTTP_USER_AGENT),
-        ShikimoriClient(cfg.SHIKIMORI_BASE, cfg.HTTP_USER_AGENT, enabled=cfg.SHIKIMORI_ENABLED),
+        AniListClient(cfg.ANILIST_URL, cfg.HTTP_USER_AGENT, allow_adult=cfg.ALLOW_ADULT),
+        ShikimoriClient(
+            cfg.SHIKIMORI_BASE, cfg.HTTP_USER_AGENT, enabled=cfg.SHIKIMORI_ENABLED, allow_adult=cfg.ALLOW_ADULT
+        ),
         shikimori_base=cfg.SHIKIMORI_BASE,
+        allow_adult=cfg.ALLOW_ADULT,
     )
 
 

@@ -62,3 +62,26 @@ def test_parse_relations_keeps_only_safe_anime_edges():
     assert [n["id"] for n in nodes] == [2]
     assert nodes[0]["partial"] == 1
     assert nodes[0]["cover"] is None  # coverImage: None не должен ронять разбор
+
+
+def test_parse_relations_allow_adult_keeps_adult_anime():
+    media = {
+        "relations": {
+            "edges": [
+                {
+                    "relationType": "SIDE_STORY",
+                    "node": {"id": 4, "type": "ANIME", "isAdult": True, "title": {"romaji": "X"}},
+                },
+            ]
+        }
+    }
+    assert parse_relations(media)[0] == []
+    assert parse_relations(media, allow_adult=True)[0] == [(4, "SIDE_STORY")]
+
+
+def test_adult_queries_drop_only_the_filter():
+    from app.providers.anilist import Q_BY_MAL_IDS, Q_BY_MAL_IDS_ADULT, Q_SEARCH, Q_SEARCH_ADULT
+
+    for plain, adult in ((Q_BY_MAL_IDS, Q_BY_MAL_IDS_ADULT), (Q_SEARCH, Q_SEARCH_ADULT)):
+        assert "isAdult: false" in plain
+        assert "isAdult: false" not in adult

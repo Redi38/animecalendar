@@ -49,7 +49,9 @@ class Catalog:
         *,
         shikimori_base: str = "https://shikimori.io",
         clock: Callable[[], float] = time.time,
+        allow_adult: bool = False,
     ) -> None:
+        self.allow_adult = allow_adult
         self.db = db
         self.anilist = anilist
         self.shikimori = shikimori
@@ -97,10 +99,10 @@ class Catalog:
         relations: dict[int, list[tuple[int, str]]] = {}
         nodes: list[dict] = []
         for m in media:
-            if m.get("type") not in (None, "ANIME") or m.get("isAdult"):
+            if m.get("type") not in (None, "ANIME") or (m.get("isAdult") and not self.allow_adult):
                 continue
             row = parse_media(m)
-            edges, partial_nodes = parse_relations(m)
+            edges, partial_nodes = parse_relations(m, allow_adult=self.allow_adult)
             rows.append(row)
             relations[row["id"]] = edges
             nodes.extend(partial_nodes)

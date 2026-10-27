@@ -151,6 +151,7 @@ h1, h2, h3, p { margin: 0; }
 
 .toolbar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-bottom: 14px; }
 .toolbar-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+.sort-label { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-weight: 600; }
 .inline-filter { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); min-width: 240px; flex: 1 1 240px; max-width: 360px; }
 .chip-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .filter-chip { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: transparent; cursor: pointer; font-weight: 600; font-size: 14px; }

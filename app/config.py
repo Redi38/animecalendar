@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     SHIKIMORI_ENABLED: bool = True
     HTTP_USER_AGENT: str = "anime-calendar-ru/1.0"
 
+    # Показывать тайтлы 18+ и жанры, которые Shikimori по умолчанию скрывает (яой, юри, хентай).
+    # Календарь сезонов остаётся без взрослого контента: настройка действует на поиск,
+    # загрузку списка просмотренного и связанные анонсы.
+    ALLOW_ADULT: bool = False
+
     # За обратным прокси (Caddy/nginx) берём IP клиента из X-Forwarded-For.
     TRUST_PROXY_HEADERS: bool = False
 

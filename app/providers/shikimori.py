@@ -33,7 +33,10 @@ class ShikimoriClient:
         *,
         enabled: bool = True,
         client: httpx.AsyncClient | None = None,
+        allow_adult: bool = False,
     ) -> None:
+        # censored=true прячет хентай, яой и юри; для ALLOW_ADULT его выключаем.
+        self._censored = "false" if allow_adult else "true"
         self._base = base_url.rstrip("/")
         self.enabled = enabled
         self._client = client or httpx.AsyncClient(
@@ -79,7 +82,7 @@ class ShikimoriClient:
             chunk = mal_ids[i : i + BATCH]
             data = await self._get(
                 "/api/animes",
-                {"ids": ",".join(str(x) for x in chunk), "limit": BATCH, "censored": "true"},
+                {"ids": ",".join(str(x) for x in chunk), "limit": BATCH, "censored": self._censored},
             )
             if not isinstance(data, list):
                 continue
@@ -98,7 +101,7 @@ class ShikimoriClient:
         """Поиск по названию (работает и с кириллицей). [{mal_id, russian, name}]."""
         data = await self._get(
             "/api/animes",
-            {"search": q, "limit": min(limit, BATCH), "order": "popularity", "censored": "true"},
+            {"search": q, "limit": min(limit, BATCH), "order": "popularity", "censored": self._censored},
         )
         if not isinstance(data, list):
             return []
