@@ -91,7 +91,7 @@ store.subscribe(() => {
 let current = null; // { cleanup, refresh } активного экрана
 let navId = 0;
 let baseHash = null; // страница под открытой карточкой
-let pageTitle = "Аниме-календарь";
+const pageTitle = "Аниме-календарь"; // название вкладки браузера не меняется при переходах между разделами
 
 const search = initSearch();
 
@@ -138,14 +138,6 @@ function showPage(route) {
     return showPage({ name: "season", year, slug: season.toLowerCase() });
   }
 
-  const titles = {
-    season: () => `${ctx.meta.seasons.find((s) => s.slug === route.slug)?.label} ${route.year}`,
-    tba: () => "Анонсы без даты",
-    watched: () => "Просмотрено",
-    upcoming: () => "Мои анонсы",
-    search: () => `Поиск: ${route.q}`,
-  };
-  pageTitle = `${titles[route.name]()} — Аниме-календарь`;
   document.title = pageTitle;
 
   if (route.name === "season") current = renderSeason(view, route, ctx, isCurrent);
