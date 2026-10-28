@@ -1,6 +1,7 @@
 import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
 import { toast } from "../ui/toast.js";
+import { confirmDialog } from "../ui/confirm.js";
 import { clear, h, plural } from "../util.js";
 
 const SEARCH_PAUSE_MS = 1100; // сервер пускает не больше 60 поисков в минуту с одного IP
@@ -178,8 +179,18 @@ export function renderWatched(root, ctx, isCurrent) {
       {
         type: "button",
         class: "btn btn-danger",
-        onclick: () => {
-          if (store.size() && confirm("Очистить весь список просмотренного?")) store.clear();
+        onclick: async () => {
+          const n = store.size();
+          if (!n) return;
+          const ok = await confirmDialog({
+            title: "Очистить список просмотренного?",
+            text: `Будет удалено ${n} ${plural(n, ["тайтл", "тайтла", "тайтлов"])}. Отменить это нельзя, поэтому сначала можно скачать список файлом.`,
+            confirmLabel: "Очистить список",
+            danger: true,
+          });
+          if (!ok) return;
+          store.clear();
+          toast("Список очищен");
         },
       },
       "Очистить",
