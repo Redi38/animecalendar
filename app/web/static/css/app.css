@@ -65,7 +65,7 @@ h1, h2, h3, p { margin: 0; }
 [hidden] { display: none !important; }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
 
 .skip-link { position: absolute; left: -999px; top: 8px; background: var(--primary); color: var(--on-primary); padding: 8px 12px; border-radius: 8px; z-index: 100; }
@@ -262,7 +262,7 @@ dialog::backdrop { background: rgba(6, 5, 10, 0.72); backdrop-filter: blur(3px);
 .toast-error { border-color: var(--danger); }
 
 /* Окно подтверждения (очистка списка просмотренного и т. п.) */
-.confirm-dialog { width: min(420px, calc(100vw - 24px)); animation: confirm-in 0.16s ease-out; }
+.confirm-dialog { width: min(420px, calc(100vw - 24px)); }
 .confirm-dialog.is-danger { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
 .confirm-body { padding: 26px 24px 22px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; }
 .confirm-icon { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; font-size: 26px; font-weight: 800; background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--primary); }
@@ -271,5 +271,67 @@ dialog::backdrop { background: rgba(6, 5, 10, 0.72); backdrop-filter: blur(3px);
 .confirm-text { color: var(--muted); font-size: 14px; line-height: 1.5; }
 .confirm-actions { display: flex; gap: 10px; margin-top: 8px; width: 100%; }
 .confirm-actions .btn { flex: 1; }
-@keyframes confirm-in { from { opacity: 0; transform: translateY(8px) scale(0.98); } to { opacity: 1; transform: none; } }
 @media (max-width: 420px) { .confirm-actions { flex-direction: column-reverse; } }
+
+/* --- анимации -------------------------------------------------------------------------
+   Отключаются целиком при prefers-reduced-motion (правило выше). Появление страницы и карточек
+   включается атрибутом html[data-enter] только на момент перехода (см. main.js), чтобы перерисовка
+   списка при вводе в фильтр не запускала анимацию заново. */
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes card-in { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(14px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes panel-in { from { opacity: 0; transform: translateY(-6px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes toast-out { to { opacity: 0; transform: translateY(8px) scale(0.97); } }
+@keyframes badge-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 59, 129, 0.55); } 60% { box-shadow: 0 0 0 7px rgba(255, 59, 129, 0); } }
+
+/* плавные состояния у всех интерактивных элементов */
+.btn, .icon-btn, .filter-chip, .nav a, .season-tab, .watch-btn, .sug, .rel-row, .dialog-close, .year-select, .inline-filter, .search input, .tcard-title a {
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease, opacity 0.18s ease;
+}
+.btn:active, .icon-btn:active, .filter-chip:active, .watch-btn:active, .dialog-close:active { transform: scale(0.95); }
+.btn:hover, .icon-btn:hover { transform: translateY(-1px); }
+.inline-filter:focus, .search input:focus, .year-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.18); }
+.nav a:hover, .season-tab:hover { transform: translateY(-1px); }
+
+/* карточки */
+.tcard { transition: transform 0.22s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.22s ease, border-color 0.2s ease; }
+.cover img { transition: transform 0.4s ease, opacity 0.25s ease; }
+.tcard:hover .cover img { transform: scale(1.05); }
+.tcard:active { transform: translateY(-1px) scale(0.99); }
+
+/* окна, выпадающие панели, уведомления */
+dialog[open] { animation: dialog-in 0.22s cubic-bezier(0.2, 0.7, 0.2, 1); }
+dialog[open]::backdrop { animation: fade-in 0.2s ease-out; }
+.search-panel { transform-origin: top right; animation: panel-in 0.16s ease-out; }
+.toast { animation: toast-in 0.25s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.toast.is-leaving { animation: toast-out 0.25s ease-in forwards; }
+.loading { animation: fade-in 0.3s ease 0.2s backwards; }
+.nav-badge { animation: badge-pulse 2.4s ease-out infinite; }
+
+/* появление страницы при переходе */
+.page-enter { animation: fade-in 0.25s ease-out; }
+html[data-enter] .container > * { animation: fade-up 0.38s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+html[data-enter] .container > :nth-child(2) { animation-delay: 50ms; }
+html[data-enter] .container > :nth-child(3) { animation-delay: 100ms; }
+html[data-enter] .container > :nth-child(4) { animation-delay: 150ms; }
+html[data-enter] .container > :nth-child(5) { animation-delay: 200ms; }
+html[data-enter] .container > :nth-child(6) { animation-delay: 250ms; }
+html[data-enter] .container > :nth-child(n + 7) { animation-delay: 300ms; }
+html[data-enter] .grid > .tcard { animation: card-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+html[data-enter] .grid > :nth-child(2) { animation-delay: 35ms; }
+html[data-enter] .grid > :nth-child(3) { animation-delay: 70ms; }
+html[data-enter] .grid > :nth-child(4) { animation-delay: 105ms; }
+html[data-enter] .grid > :nth-child(5) { animation-delay: 140ms; }
+html[data-enter] .grid > :nth-child(6) { animation-delay: 175ms; }
+html[data-enter] .grid > :nth-child(7) { animation-delay: 210ms; }
+html[data-enter] .grid > :nth-child(8) { animation-delay: 245ms; }
+html[data-enter] .grid > :nth-child(9) { animation-delay: 280ms; }
+html[data-enter] .grid > :nth-child(10) { animation-delay: 315ms; }
+html[data-enter] .grid > :nth-child(11) { animation-delay: 350ms; }
+html[data-enter] .grid > :nth-child(12) { animation-delay: 385ms; }
+html[data-enter] .grid > :nth-child(13) { animation-delay: 420ms; }
+html[data-enter] .grid > :nth-child(14) { animation-delay: 455ms; }
+html[data-enter] .grid > :nth-child(n + 15) { animation-delay: 490ms; }

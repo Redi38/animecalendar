@@ -150,6 +150,28 @@ function markNav(name) {
   }
 }
 
+// Анимация появления страницы и карточек включается только на момент перехода: html[data-enter]
+// живёт недолго и снимается при первом касании или нажатии клавиши, чтобы перерисовка списка
+// (ввод в фильтр, дозагрузка связей) не запускала её снова.
+const ENTER_MS = 2500;
+let enterTimer = 0;
+
+function stopEnter() {
+  delete document.documentElement.dataset.enter;
+  clearTimeout(enterTimer);
+}
+
+function playEnter() {
+  document.documentElement.dataset.enter = "1";
+  view.classList.remove("page-enter");
+  void view.offsetWidth; // перезапуск CSS-анимации
+  view.classList.add("page-enter");
+  clearTimeout(enterTimer);
+  enterTimer = setTimeout(stopEnter, ENTER_MS);
+}
+
+for (const type of ["pointerdown", "keydown"]) window.addEventListener(type, stopEnter, { capture: true });
+
 function showPage(route) {
   const myNav = ++navId;
   const isCurrent = () => myNav === navId;
@@ -166,6 +188,7 @@ function showPage(route) {
   }
 
   document.title = pageTitle;
+  playEnter();
 
   if (route.name === "season") current = renderSeason(view, route, ctx, isCurrent);
   else if (route.name === "tba") current = renderTba(view, ctx, isCurrent);
