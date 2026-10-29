@@ -1,13 +1,14 @@
 import { h } from "../util.js";
+import { closeDialogAnimated } from "./motion.js";
 
 /** Окно подтверждения в стиле сайта вместо системного confirm(). Resolve: true — подтвердили. */
 export function confirmDialog({ title, text, confirmLabel = "Подтвердить", cancelLabel = "Отмена", danger = false }) {
   return new Promise((resolve) => {
     const previous = document.activeElement;
-    const cancelBtn = h("button", { type: "button", class: "btn", onclick: () => dlg.close("cancel") }, cancelLabel);
+    const cancelBtn = h("button", { type: "button", class: "btn", onclick: () => closeDialogAnimated(dlg, "cancel") }, cancelLabel);
     const okBtn = h(
       "button",
-      { type: "button", class: danger ? "btn btn-danger-solid" : "btn btn-primary", onclick: () => dlg.close("ok") },
+      { type: "button", class: danger ? "btn btn-danger-solid" : "btn btn-primary", onclick: () => closeDialogAnimated(dlg, "ok") },
       confirmLabel,
     );
     const dlg = h(
@@ -29,7 +30,11 @@ export function confirmDialog({ title, text, confirmLabel = "Подтверди�
       resolve(confirmed);
     });
     dlg.addEventListener("click", (e) => {
-      if (e.target === dlg) dlg.close("cancel"); // клик по затемнению
+      if (e.target === dlg) closeDialogAnimated(dlg, "cancel"); // клик по затемнению
+    });
+    dlg.addEventListener("cancel", (e) => {
+      e.preventDefault(); // Esc: закрываем с анимацией
+      closeDialogAnimated(dlg, "cancel");
     });
     document.body.append(dlg);
     dlg.showModal();

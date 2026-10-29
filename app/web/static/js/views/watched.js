@@ -2,6 +2,7 @@ import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
 import { toast } from "../ui/toast.js";
 import { confirmDialog } from "../ui/confirm.js";
+import { replayEnter } from "../ui/motion.js";
 import { clear, h, plural } from "../util.js";
 
 const SEARCH_PAUSE_MS = 1100; // сервер пускает не больше 60 поисков в минуту с одного IP
@@ -206,7 +207,10 @@ export function renderWatched(root, ctx, isCurrent) {
           onchange: (e) => {
             sort = e.target.value;
             saveSort(sort);
-            if (lastLoad) renderList();
+            if (lastLoad) {
+              renderList();
+              replayEnter(list);
+            }
           },
         },
         SORTS.map((o) => h("option", { value: o.id, selected: o.id === sort }, o.label)),

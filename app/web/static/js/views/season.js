@@ -1,5 +1,6 @@
 import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
+import { replayEnter } from "../ui/motion.js";
 import { capitalize, clear, debounce, formatStart, h, normalize, plural, todayIso } from "../util.js";
 
 const CACHE_MS = 5 * 60 * 1000;
@@ -87,6 +88,13 @@ export function tbaTab(active) {
   return h("a", { class: "season-tab", href: "#/tba", "aria-current": active ? "page" : null }, "Без даты");
 }
 
+/** Выбранной остаётся одна кнопка группы; остальные гаснут плавно, без пересборки панели. */
+function pressOnly(btn) {
+  for (const b of btn.parentElement.querySelectorAll(".filter-chip")) {
+    b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+  }
+}
+
 function chipButton(label, active, onclick) {
   return h("button", { type: "button", class: "filter-chip", "aria-pressed": active ? "true" : "false", onclick }, label);
 }
@@ -136,35 +144,35 @@ export function renderSeason(root, { year, slug }, ctx, isCurrent) {
       "div",
       { class: "chip-row", role: "group", "aria-label": "Формат" },
       FORMAT_GROUPS.map((g) =>
-        chipButton(g.label, prefs.format === g.id, () => {
+        chipButton(g.label, prefs.format === g.id, (e) => {
           prefs.format = g.id;
           savePrefs(prefs);
-          paintToolbar();
-          paintList();
+          pressOnly(e.currentTarget);
+          paintList(true);
         }),
       ),
     );
     const grouping = h(
       "div",
       { class: "chip-row", role: "group", "aria-label": "Порядок" },
-      chipButton("По дням", prefs.group === "day", () => {
+      chipButton("По дням", prefs.group === "day", (e) => {
         prefs.group = "day";
         savePrefs(prefs);
-        paintToolbar();
-        paintList();
+        pressOnly(e.currentTarget);
+        paintList(true);
       }),
-      chipButton("По популярности", prefs.group === "popular", () => {
+      chipButton("По популярности", prefs.group === "popular", (e) => {
         prefs.group = "popular";
         savePrefs(prefs);
-        paintToolbar();
-        paintList();
+        pressOnly(e.currentTarget);
+        paintList(true);
       }),
     );
     const related = ctx.relatedIds.size
-      ? chipButton("★ Связано с моим списком", state.onlyRelated, () => {
+      ? chipButton("★ Связано с моим списком", state.onlyRelated, (e) => {
           state.onlyRelated = !state.onlyRelated;
-          paintToolbar();
-          paintList();
+          e.currentTarget.setAttribute("aria-pressed", String(state.onlyRelated));
+          paintList(true);
         })
       : null;
     const keepFocus = document.activeElement?.classList?.contains("inline-filter");
@@ -195,7 +203,7 @@ export function renderSeason(root, { year, slug }, ctx, isCurrent) {
     return groups;
   }
 
-  function paintList() {
+  function paintList(animate = false) {
     const items = visibleItems();
     const total = data.items.length;
     const count = h(
@@ -216,6 +224,7 @@ export function renderSeason(root, { year, slug }, ctx, isCurrent) {
             : "На этот сезон в каталоге пока нет тайтлов. Анонсы появляются по мере того, как студии их объявляют.",
         ),
       );
+      if (animate) replayEnter(content);
       return;
     }
     const today = todayIso();
@@ -236,6 +245,7 @@ export function renderSeason(root, { year, slug }, ctx, isCurrent) {
       ),
     );
     clear(content).append(count, ...sections);
+    if (animate) replayEnter(content);
   }
 
   function scrollToToday() {

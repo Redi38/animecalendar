@@ -1,6 +1,7 @@
 import { api } from "../api.js";
 import { clear, formatEpisodes, formatStart, h } from "../util.js";
 import { coverEl, statusChip, watchButton } from "./card.js";
+import { closeDialogAnimated, fadeOut, reducedMotion } from "./motion.js";
 
 function fact(label, value) {
   return value ? h("div", { class: "fact" }, h("dt", null, label), h("dd", null, value)) : null;
@@ -108,29 +109,47 @@ export function openTitleDialog(id, onClose) {
   controller = new AbortController();
   const signal = controller.signal;
 
-  const close = h("button", { type: "button", class: "dialog-close", "aria-label": "Закрыть", onclick: () => dialog.close() }, "✕");
-  clear(dialog).append(close, h("div", { class: "dialog-body" }, h("div", { class: "loading", role: "status" }, "Загружаем…")));
-  const holder = dialog.querySelector(".dialog-body");
+  dialog.classList.remove("is-closing"); // если окно как раз закрывалось, отменяем закрытие
+  const wasOpen = dialog.open;
+  const oldBody = dialog.querySelector(".dialog-body");
+  // Переход между связанными тайтлами: старое содержимое плавно гаснет, пока грузится новое.
+  const leave = wasOpen && oldBody && !reducedMotion() ? fadeOut(oldBody) : Promise.resolve();
+  const request = api.title(id, signal);
+  request.catch(() => {}); // ошибку разберёт цепочка ниже; здесь только чтобы не было «unhandled»
 
-  if (!dialog.open) dialog.showModal();
-  dialog.scrollTop = 0;
-
+  dialog.oncancel = (event) => {
+    event.preventDefault(); // Esc: закрываем с анимацией
+    closeDialogAnimated(dialog);
+  };
   dialog.onclose = () => {
     if (dialog.dataset.silent) return;
     onClose();
   };
   dialog.onclick = (event) => {
-    if (event.target === dialog) dialog.close();
+    if (event.target === dialog) closeDialogAnimated(dialog);
   };
 
-  api
-    .title(id, signal)
-    .then((d) => {
+  leave.then(() => {
+    if (signal.aborted) return;
+    const close = h("button", { type: "button", class: "dialog-close", "aria-label": "Закрыть", onclick: () => closeDialogAnimated(dialog) }, "✕");
+    clear(dialog).append(close, h("div", { class: "dialog-body" }, h("div", { class: "loading", role: "status" }, "Загружаем…")));
+    if (!dialog.open) dialog.showModal();
+    dialog.scrollTop = 0;
+  });
+
+  Promise.all([request, leave])
+    .then(([d]) => {
+      if (signal.aborted) return;
+      const holder = dialog.querySelector(".dialog-body");
       clear(holder).append(...body(d));
+      holder.classList.add("is-entering");
+      setTimeout(() => holder.classList.remove("is-entering"), 900);
+      dialog.scrollTop = 0;
       document.title = `${d.title} — Аниме-календарь`;
     })
     .catch((err) => {
-      if (err.name === "AbortError") return;
+      if (err.name === "AbortError" || signal.aborted) return;
+      const holder = dialog.querySelector(".dialog-body");
       clear(holder).append(
         h(
           "div",

@@ -279,6 +279,9 @@ dialog::backdrop { background: rgba(6, 5, 10, 0.72); backdrop-filter: blur(3px);
    списка при вводе в фильтр не запускала анимацию заново. */
 
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-out { to { opacity: 0; } }
+@keyframes dialog-out { to { opacity: 0; transform: translateY(12px) scale(0.985); } }
+@keyframes chip-pop { 0% { transform: scale(0.9); } 60% { transform: scale(1.07); } 100% { transform: none; } }
 @keyframes fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 @keyframes card-in { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: none; } }
 @keyframes dialog-in { from { opacity: 0; transform: translateY(14px) scale(0.985); } to { opacity: 1; transform: none; } }
@@ -303,8 +306,10 @@ dialog::backdrop { background: rgba(6, 5, 10, 0.72); backdrop-filter: blur(3px);
 .tcard:active { transform: translateY(-1px) scale(0.99); }
 
 /* окна, выпадающие панели, уведомления */
-dialog[open] { animation: dialog-in 0.22s cubic-bezier(0.2, 0.7, 0.2, 1); }
-dialog[open]::backdrop { animation: fade-in 0.2s ease-out; }
+dialog[open]:not(.is-closing) { animation: dialog-in 0.24s cubic-bezier(0.2, 0.7, 0.2, 1); }
+dialog[open]:not(.is-closing)::backdrop { animation: fade-in 0.22s ease-out; }
+dialog.is-closing { animation: dialog-out 0.2s cubic-bezier(0.4, 0, 1, 1) forwards; }
+dialog.is-closing::backdrop { animation: fade-out 0.2s ease-in forwards; }
 .search-panel { transform-origin: top right; animation: panel-in 0.16s ease-out; }
 .toast { animation: toast-in 0.25s cubic-bezier(0.2, 0.7, 0.2, 1); }
 .toast.is-leaving { animation: toast-out 0.25s ease-in forwards; }
@@ -320,18 +325,30 @@ html[data-enter] .container > :nth-child(4) { animation-delay: 150ms; }
 html[data-enter] .container > :nth-child(5) { animation-delay: 200ms; }
 html[data-enter] .container > :nth-child(6) { animation-delay: 250ms; }
 html[data-enter] .container > :nth-child(n + 7) { animation-delay: 300ms; }
-html[data-enter] .grid > .tcard { animation: card-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
-html[data-enter] .grid > :nth-child(2) { animation-delay: 35ms; }
-html[data-enter] .grid > :nth-child(3) { animation-delay: 70ms; }
-html[data-enter] .grid > :nth-child(4) { animation-delay: 105ms; }
-html[data-enter] .grid > :nth-child(5) { animation-delay: 140ms; }
-html[data-enter] .grid > :nth-child(6) { animation-delay: 175ms; }
-html[data-enter] .grid > :nth-child(7) { animation-delay: 210ms; }
-html[data-enter] .grid > :nth-child(8) { animation-delay: 245ms; }
-html[data-enter] .grid > :nth-child(9) { animation-delay: 280ms; }
-html[data-enter] .grid > :nth-child(10) { animation-delay: 315ms; }
-html[data-enter] .grid > :nth-child(11) { animation-delay: 350ms; }
-html[data-enter] .grid > :nth-child(12) { animation-delay: 385ms; }
-html[data-enter] .grid > :nth-child(13) { animation-delay: 420ms; }
-html[data-enter] .grid > :nth-child(14) { animation-delay: 455ms; }
-html[data-enter] .grid > :nth-child(n + 15) { animation-delay: 490ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > .tcard { animation: card-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(2) { animation-delay: 35ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(3) { animation-delay: 70ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(4) { animation-delay: 105ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(5) { animation-delay: 140ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(6) { animation-delay: 175ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(7) { animation-delay: 210ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(8) { animation-delay: 245ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(9) { animation-delay: 280ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(10) { animation-delay: 315ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(11) { animation-delay: 350ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(12) { animation-delay: 385ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(13) { animation-delay: 420ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(14) { animation-delay: 455ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(n + 15) { animation-delay: 490ms; }
+
+/* переход между связанными тайтлами в окне */
+.dialog-body.is-leaving { animation: fade-out 0.14s ease-in forwards; }
+.dialog-body.is-entering > * { animation: fade-up 0.34s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+.dialog-body.is-entering > :nth-child(2) { animation-delay: 45ms; }
+.dialog-body.is-entering > :nth-child(3) { animation-delay: 90ms; }
+.dialog-body.is-entering > :nth-child(4) { animation-delay: 135ms; }
+.dialog-body.is-entering > :nth-child(n + 5) { animation-delay: 180ms; }
+
+/* смена фильтра: список выезжает заново */
+.is-entering .result-count, .is-entering .day-title, .is-entering .empty { animation: fade-up 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+.filter-chip[aria-pressed="true"] { animation: chip-pop 0.28s ease-out; }

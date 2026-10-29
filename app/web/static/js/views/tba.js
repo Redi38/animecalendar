@@ -1,5 +1,6 @@
 import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
+import { replayEnter } from "../ui/motion.js";
 import { clear, debounce, h, normalize, plural } from "../util.js";
 import { tbaTab } from "./season.js";
 
@@ -58,10 +59,10 @@ export function renderTba(root, ctx, isCurrent) {
             type: "button",
             class: "filter-chip",
             "aria-pressed": state.onlyRelated ? "true" : "false",
-            onclick: () => {
+            onclick: (e) => {
               state.onlyRelated = !state.onlyRelated;
-              paintToolbar();
-              paintList();
+              e.currentTarget.setAttribute("aria-pressed", String(state.onlyRelated));
+              paintList(true);
             },
           },
           "★ Связано с моим списком",
@@ -76,7 +77,7 @@ export function renderTba(root, ctx, isCurrent) {
     }
   }
 
-  function paintList() {
+  function paintList(animate = false) {
     const items = visibleItems();
     const total = data.items.length;
     const count = h(
@@ -97,12 +98,14 @@ export function renderTba(root, ctx, isCurrent) {
             : "Сейчас анонсов без даты в каталоге нет. Они появляются, когда студии объявляют проект, но не называют срок.",
         ),
       );
+      if (animate) replayEnter(content);
       return;
     }
     clear(content).append(
       count,
       h("div", { class: "grid" }, items.map((item) => titleCard(item, { showDate: false, related: ctx.relatedIds.has(item.id) }))),
     );
+    if (animate) replayEnter(content);
   }
 
   paintToolbar();
