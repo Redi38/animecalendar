@@ -352,3 +352,7 @@ html[data-enter] .container > :nth-child(n + 7) { animation-delay: 300ms; }
 /* смена фильтра: список выезжает заново */
 .is-entering .result-count, .is-entering .day-title, .is-entering .empty { animation: fade-up 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
 .filter-chip[aria-pressed="true"] { animation: chip-pop 0.28s ease-out; }
+
+/* кнопки в шапке карточки тайтла */
+.dialog-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 4px; }
+.watch-online { text-decoration: none; }

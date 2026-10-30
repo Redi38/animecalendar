@@ -3,6 +3,19 @@ import { clear, formatEpisodes, formatStart, h } from "../util.js";
 import { coverEl, statusChip, watchButton } from "./card.js";
 import { closeDialogAnimated, fadeOut, reducedMotion } from "./motion.js";
 
+let watchTemplate = "";
+
+/** Шаблон ссылки «Смотреть онлайн» приходит с сервера (/api/meta); пустой — кнопки нет. */
+export function setWatchTemplate(template) {
+  watchTemplate = template || "";
+}
+
+/** Ссылка поиска по названию; null, если сервис не настроен или тайтл ещё не вышел. */
+export function watchOnlineUrl(template, d) {
+  if (!template || d.status === "NOT_YET_RELEASED" || d.status === "CANCELLED") return null;
+  return template.replace("{q}", encodeURIComponent(d.title));
+}
+
 function fact(label, value) {
   return value ? h("div", { class: "fact" }, h("dt", null, label), h("dd", null, value)) : null;
 }
@@ -25,6 +38,16 @@ function relationRow(rel) {
       ),
     ),
     watchButton(rel),
+  );
+}
+
+function watchOnlineLink(d) {
+  const url = watchOnlineUrl(watchTemplate, d);
+  if (!url) return null;
+  return h(
+    "a",
+    { class: "btn btn-primary watch-online", href: url, target: "_blank", rel: "noopener noreferrer" },
+    "▶ Смотреть онлайн",
   );
 }
 
@@ -61,7 +84,7 @@ function body(d) {
           d.season_label ? h("span", { class: "chip" }, d.season_label) : null,
           d.score ? h("span", { class: "chip" }, `★ ${d.score}`) : null,
         ),
-        watchButton(d, { variant: "text" }),
+        h("div", { class: "dialog-actions" }, watchButton(d, { variant: "text" }), watchOnlineLink(d)),
       ),
     ),
     h(

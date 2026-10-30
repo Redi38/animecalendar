@@ -28,6 +28,13 @@ def catalog_of(request: Request) -> Catalog:
 CatalogDep = Annotated[Catalog, Depends(catalog_of)]
 
 
+def watch_template(raw: str) -> str:
+    """Шаблон ссылки «Смотреть онлайн» отдаём, только если это http(s)-адрес с местом под название."""
+    url = (raw or "").strip()
+    ok = url.startswith(("https://", "http://")) and "{q}" in url
+    return url if ok else ""
+
+
 @router.get("/meta")
 async def meta(request: Request, catalog: CatalogDep) -> dict:
     today = catalog.today()
@@ -38,6 +45,7 @@ async def meta(request: Request, catalog: CatalogDep) -> dict:
         "max_year": seasons.max_year(today),
         "seasons": [{"code": s, "slug": seasons.slug(s), "label": SEASON_RU[s]} for s in seasons.SEASONS],
         "demo": bool(request.app.state.demo),
+        "watch_url": watch_template(request.app.state.watch_url),
     }
 
 

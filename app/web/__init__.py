@@ -82,6 +82,7 @@ def create_app(cfg: Settings | None = None, catalog: Catalog | None = None) -> F
 
     app = FastAPI(title="Аниме-календарь", lifespan=lifespan)
     app.state.demo = cfg.DEMO_MODE
+    app.state.watch_url = cfg.WATCH_URL
     if catalog is not None:
         app.state.catalog = catalog
 

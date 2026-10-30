@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     # загрузку списка просмотренного и связанные анонсы.
     ALLOW_ADULT: bool = False
 
+    # Кнопка «Смотреть онлайн» в карточке тайтла: шаблон ссылки поиска, {q} заменяется названием.
+    # Пустое значение прячет кнопку. Сервис внешний и неофициальный, при желании замените его здесь.
+    WATCH_URL: str = "https://old.yummyani.me/search?word={q}"
+
     # За обратным прокси (Caddy/nginx) берём IP клиента из X-Forwarded-For.
     TRUST_PROXY_HEADERS: bool = False
 

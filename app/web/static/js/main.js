@@ -1,7 +1,7 @@
 import { api } from "./api.js";
 import { store } from "./store.js";
 import { syncWatchButtons } from "./ui/card.js";
-import { closeTitleDialog, openTitleDialog } from "./ui/modal.js";
+import { closeTitleDialog, openTitleDialog, setWatchTemplate } from "./ui/modal.js";
 import { initSearch } from "./ui/search.js";
 import { toast } from "./ui/toast.js";
 import { debounce, h } from "./util.js";
@@ -234,6 +234,7 @@ function onRoute() {
 async function start() {
   try {
     ctx.meta = await api.meta();
+    setWatchTemplate(ctx.meta.watch_url);
   } catch (err) {
     view.replaceChildren(
       h(

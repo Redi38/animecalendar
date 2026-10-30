@@ -98,3 +98,17 @@ async def test_tba_returns_undated_cards(client: httpx.AsyncClient):
     data = r.json()
     assert data["total"] == len(data["items"]) == 2
     assert all(i["start"] is None for i in data["items"])
+
+
+async def test_meta_exposes_watch_url_template(client: httpx.AsyncClient):
+    data = (await client.get("/api/meta")).json()
+    assert data["watch_url"].startswith("https://") and "{q}" in data["watch_url"]
+
+
+def test_watch_template_rejects_unsafe_values():
+    from app.web.routes import watch_template
+
+    assert watch_template("https://example.com/s?q={q}") == "https://example.com/s?q={q}"
+    assert watch_template("javascript:alert({q})") == ""
+    assert watch_template("https://example.com/no-placeholder") == ""
+    assert watch_template("") == ""
