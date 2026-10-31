@@ -4,10 +4,29 @@ import { coverEl, statusChip, watchButton } from "./card.js";
 import { closeDialogAnimated, fadeOut, reducedMotion } from "./motion.js";
 
 let watchTemplate = "";
+let watchExact = false;
 
-/** Шаблон ссылки «Смотреть онлайн» приходит с сервера (/api/meta); пустой — кнопки нет. */
-export function setWatchTemplate(template) {
+/** Настройки «Смотреть онлайн» приходят с сервера (/api/meta). Пустой шаблон — кнопки нет. */
+export function setWatchTemplate(template, exact = false) {
   watchTemplate = template || "";
+  watchExact = Boolean(exact);
+}
+
+/** Заменяет ссылку-поиск на точную страницу тайтла, когда сервер её нашёл. Не нашёл — остаётся поиск. */
+function upgradeWatchLink(holder, d, signal) {
+  const link = holder.querySelector(".watch-online");
+  if (!watchExact || !link) return;
+  api
+    .watchPage(d.id, signal)
+    .then((res) => {
+      if (signal.aborted || !res.url || !link.isConnected) return;
+      link.href = res.url;
+      link.dataset.exact = "1";
+      link.title = "Страница этого тайтла на сайте";
+    })
+    .catch(() => {
+      /* не нашли — остаёмся на ссылке-поиске */
+    });
 }
 
 /** Ссылка поиска по названию; null, если сервис не настроен или тайтл ещё не вышел. */
@@ -165,6 +184,7 @@ export function openTitleDialog(id, onClose) {
       if (signal.aborted) return;
       const holder = dialog.querySelector(".dialog-body");
       clear(holder).append(...body(d));
+      upgradeWatchLink(holder, d, signal);
       holder.classList.add("is-entering");
       setTimeout(() => holder.classList.remove("is-entering"), 900);
       dialog.scrollTop = 0;

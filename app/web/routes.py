@@ -46,6 +46,7 @@ async def meta(request: Request, catalog: CatalogDep) -> dict:
         "seasons": [{"code": s, "slug": seasons.slug(s), "label": SEASON_RU[s]} for s in seasons.SEASONS],
         "demo": bool(request.app.state.demo),
         "watch_url": watch_template(request.app.state.watch_url),
+        "watch_exact": request.app.state.yummy.enabled,
     }
 
 
@@ -87,6 +88,18 @@ async def get_title(title_id: TitleId, catalog: CatalogDep) -> dict:
         return await catalog.detail(title_id)
     except NotFound:
         raise HTTPException(404, "Тайтл не найден") from None
+
+
+@router.get("/title/{title_id}/watch", dependencies=[Depends(limiter(30))])
+async def get_watch_page(title_id: TitleId, request: Request, catalog: CatalogDep) -> dict:
+    """Точная страница тайтла на сайте для «Смотреть онлайн»; url=null, если сайт тайтл не нашёл."""
+    row = (await catalog.db.get_titles([title_id])).get(title_id)
+    if row is None:
+        raise HTTPException(404, "Тайтл не найден")
+    titles = [row.get("title_ru"), row.get("title_english"), row.get("title_romaji")]
+    year = row.get("start_year") or row.get("season_year")
+    url = await request.app.state.yummy.find_page([t for t in titles if t], row.get("mal_id"), year)
+    return {"url": url}
 
 
 @router.get("/search", dependencies=[Depends(limiter(60))])

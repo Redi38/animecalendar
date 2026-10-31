@@ -32,6 +32,7 @@ const post = (path, body, signal) =>
 export const api = {
   meta: () => request("/api/meta"),
   season: (year, slug, signal) => request(`/api/season/${year}/${slug}`, { signal }),
+  watchPage: (id, signal) => request(`/api/title/${id}/watch`, { signal }),
   tba: (signal) => request("/api/tba", { signal }),
   title: (id, signal) => request(`/api/title/${id}`, { signal }),
   search: (q, deep = false, signal) =>

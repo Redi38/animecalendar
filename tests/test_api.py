@@ -112,3 +112,27 @@ def test_watch_template_rejects_unsafe_values():
     assert watch_template("javascript:alert({q})") == ""
     assert watch_template("https://example.com/no-placeholder") == ""
     assert watch_template("") == ""
+
+
+async def test_watch_page_returns_exact_url_from_yummy(client: httpx.AsyncClient, catalog):
+    import httpx as _httpx
+
+    from app.providers.yummy import YummyClient
+
+    ids = (await client.get("/api/season/2026/fall")).json()["items"]
+    title = ids[0]
+
+    def handler(request: _httpx.Request) -> _httpx.Response:
+        return _httpx.Response(200, json={"response": [{"anime_url": "exact-slug", "title": title["title"]}]})
+
+    transport = client._transport.app  # ASGITransport -> приложение
+    transport.state.yummy = YummyClient(
+        "https://site.test/api",
+        "https://site.test/catalog/item/{slug}",
+        "test",
+        client=_httpx.AsyncClient(transport=_httpx.MockTransport(handler)),
+    )
+    r = await client.get(f"/api/title/{title['id']}/watch")
+    assert r.status_code == 200 and r.json()["url"] == "https://site.test/catalog/item/exact-slug"
+    assert (await client.get("/api/title/999999/watch")).status_code == 404
+    assert (await client.get("/api/meta")).json()["watch_exact"] is True

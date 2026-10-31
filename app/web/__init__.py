@@ -20,6 +20,7 @@ from app.config import Settings, settings
 from app.db import Database
 from app.providers.anilist import AniListClient, AniListError
 from app.providers.shikimori import ShikimoriClient
+from app.providers.yummy import YummyClient
 from app.services.catalog import Catalog
 
 from .routes import router
@@ -79,10 +80,18 @@ def create_app(cfg: Settings | None = None, catalog: Catalog | None = None) -> F
             await cat.anilist.aclose()
             await cat.shikimori.aclose()
             await cat.db.close()
+        await app.state.yummy.aclose()
 
     app = FastAPI(title="Аниме-календарь", lifespan=lifespan)
     app.state.demo = cfg.DEMO_MODE
     app.state.watch_url = cfg.WATCH_URL
+    app.state.yummy = YummyClient(
+        cfg.WATCH_API,
+        cfg.WATCH_ITEM_URL,
+        cfg.HTTP_USER_AGENT,
+        token=cfg.WATCH_TOKEN,
+        enabled=not cfg.DEMO_MODE,  # в демо-режиме во внешние сервисы не ходим
+    )
     if catalog is not None:
         app.state.catalog = catalog
 

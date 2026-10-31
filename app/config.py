@@ -21,6 +21,12 @@ class Settings(BaseSettings):
     # Кнопка «Смотреть онлайн» в карточке тайтла: шаблон ссылки поиска, {q} заменяется названием.
     # Пустое значение прячет кнопку. Сервис внешний и неофициальный, при желании замените его здесь.
     WATCH_URL: str = "https://old.yummyani.me/search?word={q}"
+    # Точная страница тайтла: сайт ищется через его API, ответ сверяется по ID или названию и году.
+    # Пустой WATCH_API отключает точный поиск (останется ссылка-поиск). WATCH_TOKEN — необязательный
+    # токен приложения (заголовок X-Application) со страницы разработчика сайта.
+    WATCH_API: str = "https://old.yummyani.me/api"
+    WATCH_ITEM_URL: str = "https://old.yummyani.me/catalog/item/{slug}"
+    WATCH_TOKEN: str = ""
 
     # За обратным прокси (Caddy/nginx) берём IP клиента из X-Forwarded-For.
     TRUST_PROXY_HEADERS: bool = False

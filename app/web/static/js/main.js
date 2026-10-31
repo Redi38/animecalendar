@@ -234,7 +234,7 @@ function onRoute() {
 async function start() {
   try {
     ctx.meta = await api.meta();
-    setWatchTemplate(ctx.meta.watch_url);
+    setWatchTemplate(ctx.meta.watch_url, ctx.meta.watch_exact);
   } catch (err) {
     view.replaceChildren(
       h(
