@@ -24,13 +24,14 @@ A Russian-language anime release calendar in the spirit of livechart.me: seasona
 
 - **Schedule ("Афиша").** Winter / Spring / Summer / Fall of any year (1980 to the current year + 2). Titles are grouped by premiere day, with sorting by popularity, a format filter (TV, movies, ONA/OVA) and a name filter inside the season. For the current season the page scrolls to the nearest day on its own. Next to the seasons there is a "Без даты" (no date) tab: announcements whose studio has not named a season or release date yet (the most popular ones; the list refreshes every 6 hours).
 - **Search.** By Russian title, English title and romaji. It understands Russian grammatical cases and "ё". Suggestions appear as you type in the header, and Enter opens the full results.
-- **Watch online.** The title card has a button that opens the title's page on an external site (old.yummyani.me by default). The exact page is found through the site's API by MAL ID, or by title and year; until it is found, the button opens a search instead. See [Configuration](#configuration).
+- **Watch online.** The title card has a button that opens the title's page on an external site (old.yummyani.me by default). The exact page is found through the site's API by MAL ID, or by title and year; until it is found, the button opens a search instead. See the Configuration section below.
 - **Watched list.** An eye button on every card. The list is stored in the browser, and it can be downloaded as a file and uploaded on another device. You can also upload a JSON file with a list of titles (`[{"title": "..."}]` or an array of strings): the site looks each one up through its search and adds it, which takes about a second per title, and then shows which titles could not be added and why. The list can be sorted alphabetically or in the order titles were added, and cleared after a confirmation.
 - **My announcements ("Мои анонсы").** Starting from your watched list, the site walks the relation graph (sequels, prequels, spin-offs, side stories, alternative versions) and shows what has not been released yet or is airing now, labelled like "Sequel · from '…'". The walk goes up to eight steps deep, so an announcement of season five, or a movie linked to the franchise through several seasons and specials, is found even if you never marked the titles in between. Titles released within the last 45 days also appear (group "Недавно вышло", recently released), and the "★" mark in the schedule is set for every related title, including ones that are already out. Large lists are walked in batches: the page keeps loading relations and extends the list by itself. New announcements are highlighted with a "Новое" (new) badge and a counter on the tab.
 - **Title card.** Russian description, studio, genres, next episode date, related titles (you can move between them inside the window), and links to Shikimori, AniList and MyAnimeList.
 - **Interface.** Dark theme by default and a light theme following the system setting, a layout that fills wide screens, animations (disabled automatically for users who prefer reduced motion), and keyboard-friendly dialogs.
 
-## Requirements
+<details>
+<summary><b>Requirements</b></summary>
 
 - **Python 3.12+** (the Docker image uses 3.13).
 - **Docker and Docker Compose**, if you want to run it in a container.
@@ -38,7 +39,10 @@ A Russian-language anime release calendar in the spirit of livechart.me: seasona
 - **Node.js**, optional: only used by `make js-check` to syntax-check the frontend modules.
 - Internet access to AniList and Shikimori, except in demo mode.
 
-## Quick start
+</details>
+
+<details>
+<summary><b>Quick start</b></summary>
 
 ```bash
 git clone https://github.com/Redi38/animecalendar.git
@@ -100,7 +104,10 @@ Only enable `TRUST_PROXY_HEADERS` when the app is reachable exclusively through 
 
 With `PREWARM=true` the app loads the current and the next season and the "no date" list at startup, so the first visitor does not have to wait. A request for a "cold" season takes a few seconds (AniList returns 50 titles per request and the client keeps a polite pause between requests); later ones are served from the cache.
 
-## Configuration
+</details>
+
+<details>
+<summary><b>Configuration</b></summary>
 
 Settings are read from environment variables or from `.env` (see [`.env.example`](.env.example)).
 
@@ -123,7 +130,10 @@ Settings are read from environment variables or from `.env` (see [`.env.example`
 
 The "watch online" site is an external, unofficial service. To use another one, change the three `WATCH_*` addresses; nothing else is tied to it.
 
-## How it works
+</details>
+
+<details>
+<summary><b>How it works</b></summary>
 
 ```
 Browser (ES modules, no build step)
@@ -160,7 +170,10 @@ FastAPI routes ──► Catalog service ──► SQLite cache (aiosqlite)
 
 **Frontend.** Plain ES modules in `app/web/static/js`, hash-based routing (`#/season/2026/fall`, `#/tba`, `#/watched`, `#/upcoming`, `#/title/<id>`), no bundler. Data from external APIs is inserted into the DOM as text only, never as HTML. The watched list and view preferences are kept in `localStorage`; the server stores no user data.
 
-## HTTP API
+</details>
+
+<details>
+<summary><b>HTTP API</b></summary>
 
 All endpoints are under `/api`. Interactive documentation is at `/docs` (FastAPI's Swagger UI).
 
@@ -176,7 +189,10 @@ All endpoints are under `/api`. Interactive documentation is at `/docs` (FastAPI
 | `POST /api/related` | Related announcements for watched IDs. Returns `items`, `linked`, `degraded` and `incomplete`. Rate limited per IP. |
 | `GET /healthz` | Health check used by Docker. |
 
-## Development
+</details>
+
+<details>
+<summary><b>Development</b></summary>
 
 ```bash
 make ci                   # ruff, mypy, JS syntax check, tests
@@ -208,7 +224,10 @@ tests/
 
 Code style is enforced by `ruff` (line length 120) and `mypy`; there is no JS toolchain, so frontend modules are checked with `node --check`.
 
-## Troubleshooting
+</details>
+
+<details>
+<summary><b>Troubleshooting</b></summary>
 
 - **The first load of a season is slow.** That is AniList paging at 50 titles per request. It happens once per season and cache lifetime; `PREWARM=true` hides it for the current and next season.
 - **"Сервис каталога (AniList) сейчас недоступен" (HTTP 503).** AniList is down or rate limiting. Cached data is still served; try again in a minute.
@@ -218,12 +237,17 @@ Code style is enforced by `ruff` (line length 120) and `mypy`; there is no JS to
 - **The "Смотреть онлайн" button opens a search instead of the title page.** The exact page was not found through the site's API. Check the server log for lines starting with `watch:`.
 - **Port already in use.** Change the port in the `uvicorn` command or in `docker-compose.yml`.
 
-## Limitations
+</details>
+
+<details>
+<summary><b>Limitations</b></summary>
 
 - The watched list holds at most 500 titles (the limit of a single API request).
 - There are no accounts: the list lives in the browser. Moving it between devices is done with a file.
 - The episode schedule ("Серия N — через …", episode N in ...) comes from AniList and exists only for airing titles.
 - The external APIs were unreachable from the sandbox where the project was written, so the integration with live AniList, Shikimori and the watch site was checked against their documentation and on fixtures, not live. Before publishing, run `make run` once on a machine with internet access and open the current season.
+
+</details>
 
 ## License
 

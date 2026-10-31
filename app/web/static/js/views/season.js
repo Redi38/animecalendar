@@ -245,17 +245,36 @@ export function renderSeason(root, { year, slug }, ctx, isCurrent) {
       ),
     );
     clear(content).append(count, ...sections);
+    if (nearestDayGroup()) {
+      // Кнопка вместо автопрокрутки на телефоне: по умолчанию страница остаётся сверху, у настроек.
+      const bar = h("div", { class: "result-bar" });
+      count.replaceWith(bar);
+      bar.append(
+        count,
+        h(
+          "button",
+          { type: "button", class: "link-btn", onclick: () => nearestDayGroup()?.scrollIntoView({ behavior: "smooth", block: "start" }) },
+          "↓ К ближайшему дню",
+        ),
+      );
+    }
     if (animate) replayEnter(content);
   }
 
-  function scrollToToday() {
+  /** Ближайший день с релизами для текущего сезона; null, если прокручивать некуда. */
+  function nearestDayGroup() {
     const now = meta.current;
-    if (now.year !== year || now.season.toLowerCase() !== slug || prefs.group !== "day") return;
+    if (now.year !== year || now.season.toLowerCase() !== slug || prefs.group !== "day") return null;
     const today = todayIso();
-    const target = [...content.querySelectorAll(".day-group[data-day]")].find((el) => el.dataset.day >= today);
-    if (target && target !== content.querySelector(".day-group[data-day]")) {
-      target.scrollIntoView({ block: "start" });
-    }
+    const groups = [...content.querySelectorAll(".day-group[data-day]")];
+    const target = groups.find((el) => el.dataset.day >= today);
+    return target && target !== groups[0] ? target : null;
+  }
+
+  function scrollToToday() {
+    // На телефоне не прокручиваем сами: иначе фильтры остаются высоко над экраном.
+    if (window.matchMedia("(max-width: 640px)").matches) return;
+    nearestDayGroup()?.scrollIntoView({ block: "start" });
   }
 
   paintToolbar();

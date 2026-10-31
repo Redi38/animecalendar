@@ -356,3 +356,27 @@ html[data-enter] .container > :nth-child(n + 7) { animation-delay: 300ms; }
 /* кнопки в шапке карточки тайтла */
 .dialog-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 4px; }
 .watch-online { text-decoration: none; }
+
+/* --- мобильная афиша: компактные настройки ------------------------------------------- */
+.result-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.result-bar .result-count { margin-bottom: 0; }
+.link-btn { background: none; border: 0; padding: 4px 0; color: var(--primary); font-weight: 700; font-size: 14px; cursor: pointer; white-space: nowrap; }
+.day-group { scroll-margin-top: calc(var(--topbar-h) + 6px); }
+
+@media (max-width: 640px) {
+  .page-title { margin-bottom: 10px; }
+  .season-nav { gap: 8px; margin-bottom: 10px; }
+  .year-nav { order: 1; gap: 4px; }
+  .icon-btn { width: 32px; height: 32px; font-size: 20px; }
+  .year-select { padding: 5px 10px; font-size: 14px; }
+  .season-nav > .btn { order: 2; margin-left: auto; padding: 6px 12px; font-size: 13px; }
+  .season-tabs { order: 3; width: 100%; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; padding: 3px; }
+  .season-tab { padding: 8px 0; text-align: center; font-size: 13px; white-space: nowrap; }
+  .now-dot { position: absolute; top: 5px; right: 7px; margin: 0; width: 6px; height: 6px; }
+  .toolbar { gap: 8px; margin-bottom: 10px; }
+  .inline-filter { flex: 1 1 100%; min-width: 0; max-width: none; padding: 7px 14px; font-size: 14px; }
+  .toolbar > .chip-row { flex: 1 1 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: calc(var(--gutter) * -1); padding-inline: var(--gutter); }
+  .toolbar > .chip-row::-webkit-scrollbar { display: none; }
+  .toolbar > .chip-row .chip-row { flex-wrap: nowrap; }
+  .filter-chip { flex: none; white-space: nowrap; padding: 5px 11px; font-size: 13px; }
+}
