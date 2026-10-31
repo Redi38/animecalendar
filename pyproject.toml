@@ -1,7 +1,8 @@
 [project]
 name = "anime-calendar"
 version = "0.1.0"
-description = "Календарь выхода аниме на русском: сезоны, поиск, просмотренное и связанные анонсы"
+description = "Anime release calendar: seasons, search, watched list and related announcements"
+license = { text = "MIT" }
 requires-python = ">=3.12"
 
 [tool.ruff]
