@@ -52,6 +52,11 @@ export function plural(n, [one, few, many]) {
   return form === "one" ? one : form === "few" ? few : many;
 }
 
+/** 1 тайтл, 3 тайтла, 5 тайтлов */
+export function formatTitles(n) {
+  return `${n} ${plural(n, ["тайтл", "тайтла", "тайтлов"])}`;
+}
+
 export function capitalize(s) {
   return s ? s[0].toUpperCase() + s.slice(1) : s;
 }

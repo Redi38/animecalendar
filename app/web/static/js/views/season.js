@@ -1,7 +1,10 @@
 import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
+import { errorBox } from "../ui/error.js";
 import { replayEnter } from "../ui/motion.js";
-import { capitalize, clear, debounce, formatStart, h, normalize, plural, todayIso } from "../util.js";
+import { seasonIndex, seasonStep } from "../seasons.js";
+import { readJson, writeJson } from "../storage.js";
+import { capitalize, clear, debounce, formatStart, formatTitles, h, normalize, todayIso } from "../util.js";
 
 const CACHE_MS = 5 * 60 * 1000;
 const cache = new Map(); // "2026-fall" -> { at, data }
@@ -15,18 +18,11 @@ const FORMAT_GROUPS = [
 
 const PREF_KEY = "anime_calendar_prefs_v1";
 function loadPrefs() {
-  try {
-    return { group: "day", format: "all", ...JSON.parse(localStorage.getItem(PREF_KEY) || "{}") };
-  } catch {
-    return { group: "day", format: "all" };
-  }
+  const saved = readJson(PREF_KEY, {});
+  return { group: "day", format: "all", ...(saved && typeof saved === "object" ? saved : {}) };
 }
 function savePrefs(prefs) {
-  try {
-    localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
-  } catch {
-    /* не страшно */
-  }
+  writeJson(PREF_KEY, prefs);
 }
 
 export async function loadSeason(year, slug, { force = false, signal } = {}) {
@@ -47,14 +43,14 @@ function seasonNav(meta, year, slug) {
     { class: "year-select", "aria-label": "Год", onchange: (e) => (location.hash = `#/season/${e.target.value}/${slug}`) },
     years.map((y) => h("option", { value: y, selected: y === year }, String(y))),
   );
+  const slugs = meta.seasons.map((s) => s.slug);
   const step = (delta) => {
-    const index = ["winter", "spring", "summer", "fall"].indexOf(slug) + delta;
-    const total = year * 4 + index;
-    const ny = Math.floor(total / 4);
-    return `#/season/${ny}/${["winter", "spring", "summer", "fall"][((total % 4) + 4) % 4]}`;
+    const target = seasonStep(slugs, year, slug, delta);
+    return `#/season/${target.year}/${target.slug}`;
   };
-  const canPrev = year * 4 + ["winter", "spring", "summer", "fall"].indexOf(slug) - 1 >= minYear * 4;
-  const canNext = year * 4 + ["winter", "spring", "summer", "fall"].indexOf(slug) + 1 <= maxYear * 4 + 3;
+  const index = seasonIndex(slugs, year, slug);
+  const canPrev = index - 1 >= minYear * slugs.length;
+  const canNext = index + 1 <= maxYear * slugs.length + slugs.length - 1;
   const arrow = (dir, ok, label) =>
     ok
       ? h("a", { class: "icon-btn", href: step(dir), "aria-label": label }, dir < 0 ? "‹" : "›")
@@ -210,7 +206,7 @@ export function renderSeason(root, { year, slug }, ctx, isCurrent) {
       "p",
       { class: "result-count", role: "status" },
       items.length === total
-        ? `${total} ${plural(total, ["тайтл", "тайтла", "тайтлов"])}`
+        ? formatTitles(total)
         : `Показано ${items.length} из ${total}`,
     );
     if (!items.length) {
@@ -288,14 +284,7 @@ export function renderSeason(root, { year, slug }, ctx, isCurrent) {
     })
     .catch((err) => {
       if (err.name === "AbortError" || !isCurrent()) return;
-      clear(content).append(
-        h(
-          "div",
-          { class: "error-box", role: "alert" },
-          h("p", null, err.message),
-          h("button", { type: "button", class: "btn", onclick: () => renderSeason(root, { year, slug }, ctx, isCurrent) }, "Повторить"),
-        ),
-      );
+      clear(content).append(errorBox(err.message, { onRetry: () => renderSeason(root, { year, slug }, ctx, isCurrent) }));
     });
 
   return {

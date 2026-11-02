@@ -1,4 +1,5 @@
 import { titleCard } from "../ui/card.js";
+import { errorBox } from "../ui/error.js";
 import { capitalize, clear, formatStart, h, plural } from "../util.js";
 
 function groupItems(items) {
@@ -122,14 +123,7 @@ export function renderUpcoming(root, ctx, isCurrent) {
     })
     .catch((err) => {
       if (!isCurrent()) return;
-      clear(body).append(
-        h(
-          "div",
-          { class: "error-box", role: "alert" },
-          h("p", null, err.message),
-          h("button", { type: "button", class: "btn", onclick: () => renderUpcoming(root, ctx, isCurrent) }, "Повторить"),
-        ),
-      );
+      clear(body).append(errorBox(err.message, { onRetry: () => renderUpcoming(root, ctx, isCurrent) }));
     });
 
   return {

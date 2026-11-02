@@ -1,6 +1,7 @@
 import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
-import { clear, h, plural } from "../util.js";
+import { errorBox } from "../ui/error.js";
+import { clear, formatTitles, h } from "../util.js";
 
 export function renderSearch(root, { q }, ctx, isCurrent) {
   clear(root).append(
@@ -26,20 +27,13 @@ export function renderSearch(root, { q }, ctx, isCurrent) {
         return;
       }
       clear(body).append(
-        h("p", { class: "result-count" }, `Найдено: ${data.items.length} ${plural(data.items.length, ["тайтл", "тайтла", "тайтлов"])}`),
+        h("p", { class: "result-count" }, `Найдено: ${formatTitles(data.items.length)}`),
         h("div", { class: "grid" }, data.items.map((item) => titleCard(item, { showDate: true, related: ctx.relatedIds.has(item.id) }))),
       );
     })
     .catch((err) => {
       if (err.name === "AbortError" || !isCurrent()) return;
-      clear(body).append(
-        h(
-          "div",
-          { class: "error-box", role: "alert" },
-          h("p", null, err.message),
-          h("button", { type: "button", class: "btn", onclick: () => renderSearch(root, { q }, ctx, isCurrent) }, "Повторить"),
-        ),
-      );
+      clear(body).append(errorBox(err.message, { onRetry: () => renderSearch(root, { q }, ctx, isCurrent) }));
     });
 
   return { cleanup: () => controller.abort() };

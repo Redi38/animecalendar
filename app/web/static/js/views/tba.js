@@ -1,7 +1,8 @@
 import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
+import { errorBox } from "../ui/error.js";
 import { replayEnter } from "../ui/motion.js";
-import { clear, debounce, h, normalize, plural } from "../util.js";
+import { clear, debounce, formatTitles, h, normalize } from "../util.js";
 import { tbaTab } from "./season.js";
 
 /** Анонсы, у которых студия ещё не назвала ни сезон, ни дату выхода. */
@@ -84,7 +85,7 @@ export function renderTba(root, ctx, isCurrent) {
       "p",
       { class: "result-count", role: "status" },
       items.length === total
-        ? `${total} ${plural(total, ["тайтл", "тайтла", "тайтлов"])}`
+        ? formatTitles(total)
         : `Показано ${items.length} из ${total}`,
     );
     if (!items.length) {
@@ -119,14 +120,7 @@ export function renderTba(root, ctx, isCurrent) {
     })
     .catch((err) => {
       if (err.name === "AbortError" || !isCurrent()) return;
-      clear(content).append(
-        h(
-          "div",
-          { class: "error-box", role: "alert" },
-          h("p", null, err.message),
-          h("button", { type: "button", class: "btn", onclick: () => renderTba(root, ctx, isCurrent) }, "Повторить"),
-        ),
-      );
+      clear(content).append(errorBox(err.message, { onRetry: () => renderTba(root, ctx, isCurrent) }));
     });
 
   return {

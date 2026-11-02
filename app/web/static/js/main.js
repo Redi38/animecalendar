@@ -1,6 +1,7 @@
 import { api } from "./api.js";
 import { store } from "./store.js";
 import { syncWatchButtons } from "./ui/card.js";
+import { errorBox } from "./ui/error.js";
 import { closeTitleDialog, openTitleDialog, setWatchTemplate } from "./ui/modal.js";
 import { initSearch } from "./ui/search.js";
 import { toast } from "./ui/toast.js";
@@ -236,14 +237,7 @@ async function start() {
     ctx.meta = await api.meta();
     setWatchTemplate(ctx.meta.watch_url, ctx.meta.watch_exact);
   } catch (err) {
-    view.replaceChildren(
-      h(
-        "div",
-        { class: "error-box", role: "alert" },
-        h("p", null, err.message),
-        h("button", { type: "button", class: "btn", onclick: () => location.reload() }, "Обновить страницу"),
-      ),
-    );
+    view.replaceChildren(errorBox(err.message, { onRetry: () => location.reload(), retryLabel: "Обновить страницу" }));
     return;
   }
   if (ctx.meta.demo) {

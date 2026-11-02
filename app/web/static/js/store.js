@@ -1,6 +1,8 @@
 // Список просмотренного живёт в localStorage браузера (без аккаунтов).
 // Если хранилище недоступно (приватный режим, запрет cookies), работаем из памяти.
 
+import { readJson, writeJson } from "./storage.js";
+
 const KEY = "anime_calendar_v1";
 export const MAX_WATCHED = 500; // столько ID принимает API за один запрос
 
@@ -9,25 +11,17 @@ let seen = null; // null — «Новое» ещё не инициализиро
 const listeners = new Set();
 
 function load() {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return;
-    const data = JSON.parse(raw);
-    const ids = (list) => (Array.isArray(list) ? list.filter((x) => Number.isInteger(x) && x > 0) : null);
-    watched = new Set(ids(data.watched) || []);
-    const s = ids(data.seen);
-    seen = s ? new Set(s) : null;
-  } catch {
-    /* повреждённые данные — начинаем с чистого листа */
-  }
+  const data = readJson(KEY); // повреждённые данные — начинаем с чистого листа
+  if (!data || typeof data !== "object") return;
+  const ids = (list) => (Array.isArray(list) ? list.filter((x) => Number.isInteger(x) && x > 0) : null);
+  watched = new Set(ids(data.watched) || []);
+  const s = ids(data.seen);
+  seen = s ? new Set(s) : null;
 }
 
 function save() {
-  try {
-    localStorage.setItem(KEY, JSON.stringify({ watched: [...watched], seen: seen ? [...seen] : null }));
-  } catch {
-    /* хранилище недоступно — данные останутся до закрытия вкладки */
-  }
+  // хранилище недоступно — данные останутся до закрытия вкладки
+  writeJson(KEY, { watched: [...watched], seen: seen ? [...seen] : null });
 }
 
 function emit() {

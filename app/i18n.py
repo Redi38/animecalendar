@@ -79,12 +79,6 @@ RELATION_RU: dict[str, str] = {
     "OTHER": "Другое",
 }
 
-# По каким связям ищем анонсы для просмотренного. Адаптации и общие персонажи
-# слишком далеки от «продолжения того, что я смотрел».
-RELATED_TYPES: frozenset[str] = frozenset(
-    {"SEQUEL", "PREQUEL", "SIDE_STORY", "SPIN_OFF", "PARENT", "ALTERNATIVE", "SUMMARY", "COMPILATION", "CONTAINS"}
-)
-
 _TAG_RE = re.compile(r"<[^>]+>")
 _BR_RE = re.compile(r"<\s*br\s*/?\s*>", re.IGNORECASE)
 _BBCODE_RE = re.compile(r"\[/?[a-z_]+(?:=[^\]]*)?\]", re.IGNORECASE)

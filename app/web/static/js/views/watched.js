@@ -2,8 +2,10 @@ import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
 import { toast } from "../ui/toast.js";
 import { confirmDialog } from "../ui/confirm.js";
+import { errorBox } from "../ui/error.js";
 import { replayEnter } from "../ui/motion.js";
-import { clear, h, plural } from "../util.js";
+import { storageGet, storageSet } from "../storage.js";
+import { clear, formatTitles, h, plural } from "../util.js";
 
 const SEARCH_PAUSE_MS = 1100; // сервер пускает не больше 60 поисков в минуту с одного IP
 const RATE_LIMIT_WAIT_MS = 61000;
@@ -59,20 +61,12 @@ const SORTS = [
 ];
 
 function loadSort() {
-  try {
-    const v = localStorage.getItem(SORT_KEY);
-    return SORTS.some((x) => x.id === v) ? v : "alpha";
-  } catch {
-    return "alpha";
-  }
+  const v = storageGet(SORT_KEY);
+  return SORTS.some((x) => x.id === v) ? v : "alpha";
 }
 
 function saveSort(v) {
-  try {
-    localStorage.setItem(SORT_KEY, v);
-  } catch {
-    /* не страшно */
-  }
+  storageSet(SORT_KEY, v);
 }
 
 function download(name, text) {
@@ -185,7 +179,7 @@ export function renderWatched(root, ctx, isCurrent) {
           if (!n) return;
           const ok = await confirmDialog({
             title: "Очистить список просмотренного?",
-            text: `Будет удалено ${n} ${plural(n, ["тайтл", "тайтла", "тайтлов"])}. Отменить это нельзя, поэтому сначала можно скачать список файлом.`,
+            text: `Будет удалено ${formatTitles(n)}. Отменить это нельзя, поэтому сначала можно скачать список файлом.`,
             confirmLabel: "Очистить список",
             danger: true,
           });
@@ -243,7 +237,7 @@ export function renderWatched(root, ctx, isCurrent) {
         : (a, b) => a.title.localeCompare(b.title, "ru"),
     );
     const parts = [
-      h("p", { class: "result-count" }, `${ids.length} ${plural(ids.length, ["тайтл", "тайтла", "тайтлов"])}`),
+      h("p", { class: "result-count" }, formatTitles(ids.length)),
     ];
     if (data.missing.length) {
       parts.push(
@@ -282,9 +276,7 @@ export function renderWatched(root, ctx, isCurrent) {
       renderList();
     } catch (err) {
       if (err.name === "AbortError" || !isCurrent()) return;
-      clear(list).append(
-        h("div", { class: "error-box", role: "alert" }, h("p", null, err.message), h("button", { type: "button", class: "btn", onclick: paint }, "Повторить")),
-      );
+      clear(list).append(errorBox(err.message, { onRetry: paint }));
     }
   }
 
