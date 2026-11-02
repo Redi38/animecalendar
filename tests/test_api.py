@@ -140,3 +140,9 @@ async def test_watch_page_returns_exact_url_from_yummy(client: httpx.AsyncClient
 
 async def test_watch_page_404_for_unknown_title(client: httpx.AsyncClient):
     assert (await client.get("/api/title/987654/watch")).status_code == 404
+
+
+async def test_index_has_theme_toggle_and_blocking_init_script(client: httpx.AsyncClient):
+    html = (await client.get("/")).text
+    assert 'id="theme-toggle"' in html and "/static/js/theme-init.js" in html
+    assert (await client.get("/static/js/theme-init.js")).status_code == 200

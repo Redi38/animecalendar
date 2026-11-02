@@ -5,6 +5,7 @@ import { errorBox } from "./ui/error.js";
 import { closeTitleDialog, openTitleDialog, setWatchTemplate } from "./ui/modal.js";
 import { initSearch } from "./ui/search.js";
 import { toast } from "./ui/toast.js";
+import { initThemeToggle } from "./theme.js";
 import { debounce, h } from "./util.js";
 import { renderSearch } from "./views/search.js";
 import { renderSeason } from "./views/season.js";
@@ -121,6 +122,7 @@ let navId = 0;
 let baseHash = null; // страница под открытой карточкой
 const pageTitle = "Аниме-календарь"; // название вкладки браузера не меняется при переходах между разделами
 
+initThemeToggle(document.getElementById("theme-toggle"));
 const search = initSearch();
 
 function parseRoute(hash) {
