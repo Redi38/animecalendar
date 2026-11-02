@@ -71,7 +71,7 @@ def create_app(cfg: Settings | None = None, catalog: Catalog | None = None) -> F
             app.state.catalog = build_catalog(cfg)
             await app.state.catalog.db.connect()
         if cfg.PREWARM:
-            app.state.catalog._spawn(app.state.catalog.prewarm())
+            app.state.catalog.spawn(app.state.catalog.prewarm())
         yield
         if owned:
             cat: Catalog = app.state.catalog

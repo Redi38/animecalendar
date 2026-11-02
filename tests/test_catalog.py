@@ -5,7 +5,8 @@ import pytest
 
 from app.demo import BASE_ID, MAL_OFFSET
 from app.providers.anilist import AniListError
-from app.services.catalog import RELATIONS_TTL_ACTIVE, Catalog, NotFound
+from app.services.catalog import Catalog, NotFound
+from app.services.related_service import RELATIONS_TTL_ACTIVE
 
 LANTERN = [BASE_ID + 0, BASE_ID + 1, BASE_ID + 2]  # 2025 осень, 2026 осень, 2027 весна
 
@@ -262,7 +263,7 @@ async def test_related_reports_incomplete_when_budget_runs_out_and_converges(cat
     full = await catalog.related([LANTERN[0]])  # эталон: без ограничения бюджета
     assert full["incomplete"] is False
 
-    monkeypatch.setattr("app.services.catalog.FETCH_BUDGET", 1)
+    monkeypatch.setattr("app.services.related_service.FETCH_BUDGET", 1)
     # свежая БД, чтобы ничего не осталось в кэше от эталонного вызова
     await catalog.db.conn.execute("UPDATE titles SET relations_synced_at = NULL")
     await catalog.db.conn.commit()
