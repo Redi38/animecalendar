@@ -136,3 +136,7 @@ async def test_watch_page_returns_exact_url_from_yummy(client: httpx.AsyncClient
     assert r.status_code == 200 and r.json()["url"] == "https://site.test/catalog/item/exact-slug"
     assert (await client.get("/api/title/999999/watch")).status_code == 404
     assert (await client.get("/api/meta")).json()["watch_exact"] is True
+
+
+async def test_watch_page_404_for_unknown_title(client: httpx.AsyncClient):
+    assert (await client.get("/api/title/987654/watch")).status_code == 404

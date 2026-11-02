@@ -10,7 +10,10 @@ from pydantic import BaseModel, Field
 from app import seasons
 from app.ratelimit import limiter
 from app.seasons import SEASON_RU
-from app.services.catalog import Catalog, NotFound
+from app.services import dto
+from app.services.catalog import NotFound
+
+from .deps import CatalogDep, YummyDep
 
 router = APIRouter(prefix="/api")
 
@@ -21,13 +24,6 @@ class IdsBody(BaseModel):
     ids: list[TitleId] = Field(max_length=500)
 
 
-def catalog_of(request: Request) -> Catalog:
-    return request.app.state.catalog
-
-
-CatalogDep = Annotated[Catalog, Depends(catalog_of)]
-
-
 def watch_template(raw: str) -> str:
     """Шаблон ссылки «Смотреть онлайн» отдаём, только если это http(s)-адрес с местом под название."""
     url = (raw or "").strip()
@@ -36,7 +32,7 @@ def watch_template(raw: str) -> str:
 
 
 @router.get("/meta")
-async def meta(request: Request, catalog: CatalogDep) -> dict:
+async def meta(request: Request, catalog: CatalogDep, yummy: YummyDep) -> dict:
     today = catalog.today()
     season, year = seasons.season_of(today)
     return {
@@ -45,8 +41,8 @@ async def meta(request: Request, catalog: CatalogDep) -> dict:
         "max_year": seasons.max_year(today),
         "seasons": [{"code": s, "slug": seasons.slug(s), "label": SEASON_RU[s]} for s in seasons.SEASONS],
         "demo": bool(request.app.state.demo),
-        "watch_url": watch_template(request.app.state.watch_url),
-        "watch_exact": request.app.state.yummy.enabled,
+        "watch_url": request.app.state.watch_url,
+        "watch_exact": yummy.enabled,
     }
 
 
@@ -60,8 +56,6 @@ async def get_season(year: int, season: str, catalog: CatalogDep) -> dict:
         raise HTTPException(404, "Для этого года нет данных")
     rows, synced_at = await catalog.season(year, code)
     now = catalog.now()
-    from app.services import dto
-
     return {
         "year": year,
         "season": code,
@@ -77,8 +71,6 @@ async def get_season(year: int, season: str, catalog: CatalogDep) -> dict:
 async def get_tba(catalog: CatalogDep) -> dict:
     rows, synced_at = await catalog.tba()
     now = catalog.now()
-    from app.services import dto
-
     return {"synced_at": synced_at, "total": len(rows), "items": [dto.card(r, now=now) for r in rows]}
 
 
@@ -91,15 +83,13 @@ async def get_title(title_id: TitleId, catalog: CatalogDep) -> dict:
 
 
 @router.get("/title/{title_id}/watch", dependencies=[Depends(limiter(30))])
-async def get_watch_page(title_id: TitleId, request: Request, catalog: CatalogDep) -> dict:
+async def get_watch_page(title_id: TitleId, catalog: CatalogDep, yummy: YummyDep) -> dict:
     """Точная страница тайтла на сайте для «Смотреть онлайн»; url=null, если сайт тайтл не нашёл."""
-    row = (await catalog.db.get_titles([title_id])).get(title_id)
-    if row is None:
-        raise HTTPException(404, "Тайтл не найден")
-    titles = [row.get("title_ru"), row.get("title_english"), row.get("title_romaji")]
-    year = row.get("start_year") or row.get("season_year")
-    url = await request.app.state.yummy.find_page([t for t in titles if t], row.get("mal_id"), year)
-    return {"url": url}
+    try:
+        titles, mal_id, year = await catalog.watch_query(title_id)
+    except NotFound:
+        raise HTTPException(404, "Тайтл не найден") from None
+    return {"url": await yummy.find_page(titles, mal_id, year)}
 
 
 @router.get("/search", dependencies=[Depends(limiter(60))])

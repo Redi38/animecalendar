@@ -289,3 +289,10 @@ async def test_related_shows_a_title_that_came_out_a_few_days_ago(catalog: Catal
     result = await catalog.related([LANTERN[0]])
     got = {i["id"]: i for i in result["items"]}
     assert LANTERN[2] in got and got[LANTERN[2]]["status"] == "FINISHED"
+
+
+async def test_list_queries_skip_heavy_columns_but_detail_has_them(catalog):
+    rows, _ = await catalog.season(2026, "FALL")
+    assert rows and "description" not in rows[0] and "search_text" not in rows[0]
+    detail = await catalog.detail(rows[0]["id"])
+    assert detail["description"]

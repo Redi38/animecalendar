@@ -81,12 +81,25 @@ _BASIC = (
 # Поля, которые приходят только вместе с полной записью.
 _FULL_ONLY = ("duration", "source", "genres", "studios", "next_ep_at", "next_ep_number", "description")
 
+# Тяжёлые поля (описания, поисковый индекс) нужны только карточке тайтла и самому поиску:
+# в списках и сетках их не читаем.
+_HEAVY = frozenset({"description", "description_ru", "search_text"})
+_ALL_COLUMNS = (
+    "id", *_BASIC, "title_ru", "search_text", *_FULL_ONLY, "description_ru",
+    "desc_ru_checked_at", "ru_checked_at", "relations_synced_at", "synced_at", "partial",
+)  # fmt: skip
+_LIGHT = ", ".join(c for c in dict.fromkeys(_ALL_COLUMNS) if c not in _HEAVY)
+
 _IN_CHUNK = 500
 
 
 def _chunks(items: Sequence[Any], size: int = _IN_CHUNK) -> Iterable[Sequence[Any]]:
     for i in range(0, len(items), size):
         yield items[i : i + size]
+
+
+def _marks(n: int) -> str:
+    return ",".join("?" * n)
 
 
 def build_search_text(row: dict[str, Any]) -> str:
@@ -124,20 +137,31 @@ class Database:
             raise RuntimeError("База данных не подключена")
         return self._conn
 
+    async def _select_in(
+        self, sql: str, ids: Sequence[int], *, before: Sequence[Any] = (), after: Sequence[Any] = ()
+    ) -> list[aiosqlite.Row]:
+        """SELECT с условием IN ({marks}) пачками; before/after — параметры до и после списка ID."""
+        out: list[aiosqlite.Row] = []
+        for chunk in _chunks(list(ids)):
+            async with self.conn.execute(sql.format(marks=_marks(len(chunk))), [*before, *chunk, *after]) as cur:
+                out.extend(await cur.fetchall())
+        return out
+
+    async def _execute_in(self, sql: str, ids: Sequence[int], *, before: Sequence[Any] = ()) -> None:
+        for chunk in _chunks(list(ids)):
+            await self.conn.execute(sql.format(marks=_marks(len(chunk))), [*before, *chunk])
+
     # --- чтение ---------------------------------------------------------------
 
-    async def get_titles(self, ids: Sequence[int]) -> dict[int, dict[str, Any]]:
-        out: dict[int, dict[str, Any]] = {}
-        for chunk in _chunks(list(ids)):
-            marks = ",".join("?" * len(chunk))
-            async with self.conn.execute(f"SELECT * FROM titles WHERE id IN ({marks})", list(chunk)) as cur:
-                async for row in cur:
-                    out[row["id"]] = dict(row)
-        return out
+    async def get_titles(self, ids: Sequence[int], *, full: bool = False) -> dict[int, dict[str, Any]]:
+        """Записи по ID. full=True добавляет описания и поисковый индекс (нужны только карточке тайтла)."""
+        cols = "*" if full else _LIGHT
+        rows = await self._select_in(f"SELECT {cols} FROM titles WHERE id IN ({{marks}})", ids)
+        return {r["id"]: dict(r) for r in rows}
 
     async def season_titles(self, season: str, year: int) -> list[dict[str, Any]]:
         async with self.conn.execute(
-            "SELECT * FROM titles WHERE season = ? AND season_year = ? ORDER BY popularity DESC, id",
+            f"SELECT {_LIGHT} FROM titles WHERE season = ? AND season_year = ? ORDER BY popularity DESC, id",
             (season, year),
         ) as cur:
             return [dict(r) async for r in cur]
@@ -145,7 +169,7 @@ class Database:
     async def tba_titles(self, since: int) -> list[dict[str, Any]]:
         """Анонсы без сезона и даты, подтверждённые свежей выборкой (synced_at >= since)."""
         async with self.conn.execute(
-            "SELECT * FROM titles WHERE status = 'NOT_YET_RELEASED' AND season_year IS NULL "
+            f"SELECT {_LIGHT} FROM titles WHERE status = 'NOT_YET_RELEASED' AND season_year IS NULL "
             "AND start_year IS NULL AND partial = 0 AND synced_at >= ? ORDER BY popularity DESC, id",
             (since,),
         ) as cur:
@@ -158,21 +182,18 @@ class Database:
             return []
         where = " AND ".join("instr(search_text, ?) > 0" for _ in tokens)
         async with self.conn.execute(
-            f"SELECT * FROM titles WHERE {where} ORDER BY popularity DESC LIMIT ?",
+            f"SELECT {_LIGHT} FROM titles WHERE {where} ORDER BY popularity DESC LIMIT ?",
             [*tokens, limit],
         ) as cur:
             return [dict(r) async for r in cur]
 
     async def relations_from(self, source_ids: Sequence[int]) -> dict[int, list[tuple[int, str]]]:
         out: dict[int, list[tuple[int, str]]] = {}
-        for chunk in _chunks(list(source_ids)):
-            marks = ",".join("?" * len(chunk))
-            async with self.conn.execute(
-                f"SELECT source_id, target_id, relation_type FROM relations WHERE source_id IN ({marks})",
-                list(chunk),
-            ) as cur:
-                async for r in cur:
-                    out.setdefault(r["source_id"], []).append((r["target_id"], r["relation_type"]))
+        rows = await self._select_in(
+            "SELECT source_id, target_id, relation_type FROM relations WHERE source_id IN ({marks})", source_ids
+        )
+        for r in rows:
+            out.setdefault(r["source_id"], []).append((r["target_id"], r["relation_type"]))
         return out
 
     async def season_synced_at(self, key: str) -> int | None:
@@ -182,28 +203,51 @@ class Database:
 
     async def ids_needing_ru(self, ids: Sequence[int], checked_before: int) -> list[tuple[int, int]]:
         """(id, mal_id) из ids, для которых русское название ещё не искали или давно не проверяли."""
-        out: list[tuple[int, int]] = []
-        for chunk in _chunks(list(ids)):
-            marks = ",".join("?" * len(chunk))
-            async with self.conn.execute(
-                f"""SELECT id, mal_id FROM titles
-                    WHERE id IN ({marks}) AND mal_id IS NOT NULL AND title_ru IS NULL
-                      AND (ru_checked_at IS NULL OR ru_checked_at < ?)""",
-                [*chunk, checked_before],
-            ) as cur:
-                out.extend([(r["id"], r["mal_id"]) async for r in cur])
-        return out
+        rows = await self._select_in(
+            "SELECT id, mal_id FROM titles WHERE id IN ({marks}) AND mal_id IS NOT NULL AND title_ru IS NULL "
+            "AND (ru_checked_at IS NULL OR ru_checked_at < ?)",
+            ids,
+            after=[checked_before],
+        )
+        return [(r["id"], r["mal_id"]) for r in rows]
 
     # --- запись ---------------------------------------------------------------
 
     async def _existing_ru(self, ids: Sequence[int]) -> dict[int, str | None]:
-        out: dict[int, str | None] = {}
-        for chunk in _chunks(list(ids)):
-            marks = ",".join("?" * len(chunk))
-            async with self.conn.execute(f"SELECT id, title_ru FROM titles WHERE id IN ({marks})", list(chunk)) as cur:
-                async for r in cur:
-                    out[r["id"]] = r["title_ru"]
-        return out
+        rows = await self._select_in("SELECT id, title_ru FROM titles WHERE id IN ({marks})", ids)
+        return {r["id"]: r["title_ru"] for r in rows}
+
+    @staticmethod
+    def _upsert_sql(cols: Sequence[str], *, partial: bool) -> str:
+        """INSERT ... ON CONFLICT для полной (partial=False) или неполной записи.
+
+        Неполная запись никогда не затирает полную: обновляется только то, что уже неполное.
+        """
+        values = ", ".join(f":{c}" for c in cols)
+        updates = ", ".join(f"{c} = excluded.{c}" for c in cols if c != "id")
+        sql = (
+            f"INSERT INTO titles ({', '.join(cols)}, search_text, synced_at, partial) "
+            f"VALUES ({values}, :search_text, :synced_at, {int(partial)}) "
+            f"ON CONFLICT(id) DO UPDATE SET {updates}, search_text = excluded.search_text, "
+            "synced_at = excluded.synced_at"
+        )
+        return sql + (" WHERE titles.partial = 1" if partial else ", partial = 0")
+
+    async def _upsert_rows(
+        self, rows: Sequence[dict[str, Any]], cols: Sequence[str], *, partial: bool, now: int
+    ) -> None:
+        """Записать строки одним executemany; сохраняет уже найденные русские названия в search_text."""
+        if not rows:
+            return
+        ru = await self._existing_ru([r["id"] for r in rows])
+        params = []
+        for row in rows:
+            merged = {c: row.get(c) for c in cols}
+            merged["popularity"] = merged["popularity"] or 0
+            merged["search_text"] = build_search_text({**row, "title_ru": ru.get(row["id"])})
+            merged["synced_at"] = now
+            params.append(merged)
+        await self.conn.executemany(self._upsert_sql(cols, partial=partial), params)
 
     async def upsert_full(
         self,
@@ -214,24 +258,7 @@ class Database:
     ) -> None:
         """Полные записи + их связи + неполные записи связанных тайтлов — одной транзакцией."""
         async with self._write:
-            ru = await self._existing_ru([r["id"] for r in rows])
-            cols = ["id", *_BASIC, *_FULL_ONLY]
-            marks = ", ".join(f":{c}" for c in cols)
-            updates = ", ".join(f"{c} = excluded.{c}" for c in cols if c != "id")
-            sql = (
-                f"INSERT INTO titles ({', '.join(cols)}, search_text, synced_at, partial) "
-                f"VALUES ({marks}, :search_text, :synced_at, 0) "
-                f"ON CONFLICT(id) DO UPDATE SET {updates}, search_text = excluded.search_text, "
-                f"synced_at = excluded.synced_at, partial = 0"
-            )
-            params = []
-            for row in rows:
-                merged = {c: row.get(c) for c in cols}
-                merged["popularity"] = merged["popularity"] or 0
-                merged["search_text"] = build_search_text({**row, "title_ru": ru.get(row["id"])})
-                merged["synced_at"] = now
-                params.append(merged)
-            await self.conn.executemany(sql, params)
+            await self._upsert_rows(rows, ["id", *_BASIC, *_FULL_ONLY], partial=False, now=now)
 
             for source_id, edges in relations.items():
                 await self.conn.execute("DELETE FROM relations WHERE source_id = ?", (source_id,))
@@ -244,33 +271,9 @@ class Database:
             await self._upsert_partial_locked(partial_nodes, now)
             await self.conn.commit()
 
-    async def upsert_partial(self, rows: list[dict[str, Any]], now: int) -> None:
-        async with self._write:
-            await self._upsert_partial_locked(rows, now)
-            await self.conn.commit()
-
     async def _upsert_partial_locked(self, rows: list[dict[str, Any]], now: int) -> None:
-        if not rows:
-            return
         unique = {r["id"]: r for r in rows}  # узел может встретиться у нескольких тайтлов
-        ru = await self._existing_ru(list(unique))
-        cols = ["id", *_BASIC]
-        marks = ", ".join(f":{c}" for c in cols)
-        updates = ", ".join(f"{c} = excluded.{c}" for c in cols if c != "id")
-        sql = (
-            f"INSERT INTO titles ({', '.join(cols)}, search_text, synced_at, partial) "
-            f"VALUES ({marks}, :search_text, :synced_at, 1) "
-            f"ON CONFLICT(id) DO UPDATE SET {updates}, search_text = excluded.search_text, "
-            f"synced_at = excluded.synced_at WHERE titles.partial = 1"
-        )
-        params = []
-        for row in unique.values():
-            merged = {c: row.get(c) for c in cols}
-            merged["popularity"] = merged["popularity"] or 0
-            merged["search_text"] = build_search_text({**row, "title_ru": ru.get(row["id"])})
-            merged["synced_at"] = now
-            params.append(merged)
-        await self.conn.executemany(sql, params)
+        await self._upsert_rows(list(unique.values()), ["id", *_BASIC], partial=True, now=now)
 
     async def mark_season(self, key: str, now: int, total: int) -> None:
         async with self._write:
@@ -292,11 +295,7 @@ class Database:
                 (season, year),
             ) as cur:
                 stale = [r["id"] async for r in cur if r["id"] not in keep_ids]
-            for chunk in _chunks(stale):
-                marks = ",".join("?" * len(chunk))
-                await self.conn.execute(
-                    f"UPDATE titles SET season = NULL, season_year = NULL WHERE id IN ({marks})", list(chunk)
-                )
+            await self._execute_in("UPDATE titles SET season = NULL, season_year = NULL WHERE id IN ({marks})", stale)
             await self.conn.commit()
             return len(stale)
 
@@ -305,18 +304,19 @@ class Database:
         if not answered:
             return
         async with self._write:
-            mal_ids = list(answered)
-            for chunk in _chunks(mal_ids):
-                marks = ",".join("?" * len(chunk))
-                async with self.conn.execute(f"SELECT * FROM titles WHERE mal_id IN ({marks})", list(chunk)) as cur:
-                    rows = [dict(r) async for r in cur]
-                for row in rows:
-                    ru = names.get(row["mal_id"]) or row["title_ru"]
-                    row["title_ru"] = ru
-                    await self.conn.execute(
-                        "UPDATE titles SET title_ru = ?, search_text = ?, ru_checked_at = ? WHERE id = ?",
-                        (ru, build_search_text(row), now, row["id"]),
-                    )
+            rows = await self._select_in(
+                "SELECT id, mal_id, title_ru, title_english, title_romaji, title_native "
+                "FROM titles WHERE mal_id IN ({marks})",
+                list(answered),
+            )
+            params = []
+            for r in rows:
+                row = dict(r)
+                row["title_ru"] = names.get(row["mal_id"]) or row["title_ru"]
+                params.append((row["title_ru"], build_search_text(row), now, row["id"]))
+            await self.conn.executemany(
+                "UPDATE titles SET title_ru = ?, search_text = ?, ru_checked_at = ? WHERE id = ?", params
+            )
             await self.conn.commit()
 
     async def mark_relations_synced(self, ids: Sequence[int], now: int) -> None:
@@ -324,12 +324,11 @@ class Database:
         if not ids:
             return
         async with self._write:
-            for chunk in _chunks(list(ids)):
-                marks = ",".join("?" * len(chunk))
-                await self.conn.execute(
-                    f"UPDATE titles SET relations_synced_at = ? WHERE id IN ({marks}) AND relations_synced_at IS NULL",
-                    [now, *chunk],
-                )
+            await self._execute_in(
+                "UPDATE titles SET relations_synced_at = ? WHERE id IN ({marks}) AND relations_synced_at IS NULL",
+                ids,
+                before=[now],
+            )
             await self.conn.commit()
 
     async def set_description_ru(self, title_id: int, text: str | None, now: int) -> None:

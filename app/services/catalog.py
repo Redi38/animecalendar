@@ -17,9 +17,9 @@ from typing import Any
 
 from app.db import Database
 from app.i18n import has_cyrillic, normalize
-from app.providers.anilist import AniListClient, AniListError, is_tba, parse_media, parse_relations
-from app.providers.shikimori import ShikimoriClient
-from app.seasons import season_of, ttl_seconds
+from app.providers.anilist import AniListError, is_tba, parse_media, parse_relations
+from app.providers.ports import AniListPort, ShikimoriPort
+from app.seasons import season_of, shift, ttl_seconds
 from app.services import dto
 from app.services.related import CHAIN_TYPES, MAX_DEPTH, released_recently, walk
 
@@ -48,8 +48,8 @@ class Catalog:
     def __init__(
         self,
         db: Database,
-        anilist: AniListClient,
-        shikimori: ShikimoriClient,
+        anilist: AniListPort,
+        shikimori: ShikimoriPort,
         *,
         shikimori_base: str = "https://shikimori.io",
         clock: Callable[[], float] = time.time,
@@ -222,8 +222,6 @@ class Catalog:
 
     async def prewarm(self) -> None:
         """Текущий и следующий сезоны — к моменту первого визита."""
-        from app.seasons import shift
-
         season, year = season_of(self.today())
         nxt_season, nxt_year = shift(season, year, 1)
         for y, s in ((year, season), (nxt_year, nxt_season)):
@@ -256,7 +254,7 @@ class Catalog:
         return cards, [i for i in unique if i not in rows]
 
     async def detail(self, title_id: int) -> dict:
-        rows = await self.db.get_titles([title_id])
+        rows = await self.db.get_titles([title_id], full=True)
         row = rows.get(title_id)
         if row is None or row["partial"]:
             try:
@@ -264,12 +262,12 @@ class Catalog:
             except AniListError:
                 if row is None:
                     raise
-            row = (await self.db.get_titles([title_id])).get(title_id)
+            row = (await self.db.get_titles([title_id], full=True)).get(title_id)
         if row is None:
             raise NotFound(title_id)
 
         await self._enrich_ru([title_id], wait=4.0)
-        row = (await self.db.get_titles([title_id]))[title_id]
+        row = (await self.db.get_titles([title_id], full=True))[title_id]
 
         if row.get("mal_id") and row.get("description_ru") is None and self.shikimori.enabled:
             checked = row.get("desc_ru_checked_at")
@@ -286,6 +284,14 @@ class Catalog:
         order = {"PREQUEL": 0, "SEQUEL": 1, "PARENT": 2, "SIDE_STORY": 3, "SPIN_OFF": 4}
         relations.sort(key=lambda r: (order.get(r["relation"], 9), r["start"] or "9999"))
         return dto.detail(row, now=now, relations=relations, shikimori_base=self.shikimori_base)
+
+    async def watch_query(self, title_id: int) -> tuple[list[str], int | None, int | None]:
+        """Данные для поиска страницы тайтла на сайте просмотра: (названия, MAL ID, год)."""
+        row = (await self.db.get_titles([title_id])).get(title_id)
+        if row is None:
+            raise NotFound(title_id)
+        names = [row.get("title_ru"), row.get("title_english"), row.get("title_romaji")]
+        return [n for n in names if n], row.get("mal_id"), row.get("start_year") or row.get("season_year")
 
     # --- поиск -----------------------------------------------------------------
 

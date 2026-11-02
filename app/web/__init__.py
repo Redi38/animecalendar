@@ -18,12 +18,14 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import Settings, settings
 from app.db import Database
+from app.demo import DemoAniList, DemoShikimori
 from app.providers.anilist import AniListClient, AniListError
+from app.providers.ports import AniListPort, ShikimoriPort
 from app.providers.shikimori import ShikimoriClient
 from app.providers.yummy import YummyClient
 from app.services.catalog import Catalog
 
-from .routes import router
+from .routes import router, watch_template
 
 logger = logging.getLogger(__name__)
 
@@ -37,22 +39,19 @@ CSP = (
 
 
 def build_catalog(cfg: Settings) -> Catalog:
+    anilist: AniListPort
+    shikimori: ShikimoriPort
     if cfg.DEMO_MODE:
-        from app.demo import DemoAniList, DemoShikimori
-
-        return Catalog(
-            Database(cfg.DB_PATH),
-            DemoAniList(),  # type: ignore[arg-type]
-            DemoShikimori(),  # type: ignore[arg-type]
-            shikimori_base=cfg.SHIKIMORI_BASE,
-            allow_adult=cfg.ALLOW_ADULT,
+        anilist, shikimori = DemoAniList(), DemoShikimori()
+    else:
+        anilist = AniListClient(cfg.ANILIST_URL, cfg.HTTP_USER_AGENT, allow_adult=cfg.ALLOW_ADULT)
+        shikimori = ShikimoriClient(
+            cfg.SHIKIMORI_BASE, cfg.HTTP_USER_AGENT, enabled=cfg.SHIKIMORI_ENABLED, allow_adult=cfg.ALLOW_ADULT
         )
     return Catalog(
         Database(cfg.DB_PATH),
-        AniListClient(cfg.ANILIST_URL, cfg.HTTP_USER_AGENT, allow_adult=cfg.ALLOW_ADULT),
-        ShikimoriClient(
-            cfg.SHIKIMORI_BASE, cfg.HTTP_USER_AGENT, enabled=cfg.SHIKIMORI_ENABLED, allow_adult=cfg.ALLOW_ADULT
-        ),
+        anilist,
+        shikimori,
         shikimori_base=cfg.SHIKIMORI_BASE,
         allow_adult=cfg.ALLOW_ADULT,
     )
@@ -84,7 +83,7 @@ def create_app(cfg: Settings | None = None, catalog: Catalog | None = None) -> F
 
     app = FastAPI(title="Аниме-календарь", lifespan=lifespan)
     app.state.demo = cfg.DEMO_MODE
-    app.state.watch_url = cfg.WATCH_URL
+    app.state.watch_url = watch_template(cfg.WATCH_URL)  # шаблон постоянный: проверяем один раз
     app.state.yummy = YummyClient(
         cfg.WATCH_API,
         cfg.WATCH_ITEM_URL,
