@@ -1,4 +1,5 @@
 import { api } from "../api.js";
+import { groupRelations } from "../relations.js";
 import { clear, formatEpisodes, formatStart, h } from "../util.js";
 import { coverEl, statusChip, watchButton } from "./card.js";
 import { closeDialogAnimated, fadeOut, reducedMotion } from "./motion.js";
@@ -133,7 +134,14 @@ function body(d) {
           "section",
           { class: "dialog-section" },
           h("h3", null, `Связанные тайтлы (${d.relations.length})`),
-          h("ul", { class: "rel-list" }, d.relations.map(relationRow)),
+          groupRelations(d.relations).map((g) =>
+            h(
+              "div",
+              { class: "rel-group", "data-group": g.key },
+              h("h4", { class: "rel-group-title" }, `${g.title} (${g.items.length})`),
+              h("ul", { class: "rel-list" }, g.items.map(relationRow)),
+            ),
+          ),
         )
       : null,
     links.length

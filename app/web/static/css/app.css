@@ -238,6 +238,8 @@ dialog::backdrop { background: rgba(6, 5, 10, 0.72); backdrop-filter: blur(3px);
 .dialog-section h3 { font-size: 16px; margin-bottom: 8px; }
 .description { white-space: pre-line; max-width: 66ch; }
 .rel-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rel-group + .rel-group { margin-top: 14px; }
+.rel-group-title { font-size: 13px; font-weight: 700; color: var(--muted); margin: 0 0 6px; text-transform: uppercase; letter-spacing: .04em; }
 .rel-row { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: var(--radius-sm); border: 1px solid transparent; }
 .rel-row:hover { background: var(--card); }
 .rel-row.is-watched { border-color: color-mix(in srgb, var(--good) 45%, transparent); }

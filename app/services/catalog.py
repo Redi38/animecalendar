@@ -39,6 +39,8 @@ SEARCH_CACHE_TTL = 600
 SEARCH_CACHE_MAX = 500
 ANNOUNCED = ("NOT_YET_RELEASED", "RELEASING")
 
+Refresh = Callable[[], Coroutine[Any, Any, set[int]]]  # загрузить и сохранить; вернуть ID сохранённых тайтлов
+
 
 class NotFound(Exception):
     pass
@@ -139,86 +141,76 @@ class Catalog:
         if wait:
             await asyncio.wait({task}, timeout=wait)
 
+    # --- синхронизация сезонов и анонсов ----------------------------------------
+
+    async def _ensure_fresh(self, key: str, ttl: int, label: str, refresh: Refresh) -> None:
+        """Первый раз ждём загрузку, протухшее отдаём как есть и обновляем в фоне (stale-while-revalidate)."""
+        synced = await self.db.season_synced_at(key)
+        if synced is None:
+            await self._refresh(key, ttl, label, refresh)
+        elif self.now() - synced > ttl and key not in self._refreshing:
+            self._refreshing.add(key)
+            self._spawn(self._refresh_quietly(key, ttl, label, refresh))
+
+    async def _refresh_quietly(self, key: str, ttl: int, label: str, refresh: Refresh) -> None:
+        try:
+            await self._refresh(key, ttl, label, refresh)
+        except AniListError as e:
+            logger.warning("не удалось обновить %s: %s", label, e)
+        finally:
+            self._refreshing.discard(key)
+
+    async def _refresh(self, key: str, ttl: int, label: str, refresh: Refresh) -> None:
+        async with self._locks[key]:
+            synced = await self.db.season_synced_at(key)
+            if synced is not None and self.now() - synced <= ttl:
+                return  # пока ждали замок, другой запрос уже обновил
+            ids = await refresh()
+            await self.db.mark_season(key, self.now(), len(ids))
+            logger.info("%s обновлён: %d тайтлов", label, len(ids))
+            await self._enrich_ru(sorted(ids), wait=8.0)
+
+    @staticmethod
+    async def _collect(
+        fetch_page: Callable[[int], Coroutine[Any, Any, tuple[list[dict], bool]]], max_pages: int
+    ) -> tuple[list[dict], bool]:
+        """Страницы AniList подряд. Второй элемент — выбрано ли всё (иначе упёрлись в лимит страниц)."""
+        media: list[dict] = []
+        page, has_next = 1, True
+        while has_next and page <= max_pages:
+            chunk, has_next = await fetch_page(page)
+            media.extend(chunk)
+            page += 1
+        return media, not has_next
+
     # --- сезоны ----------------------------------------------------------------
 
     async def season(self, year: int, season: str) -> tuple[list[dict], int | None]:
         key = f"{year}-{season}"
-        synced = await self.db.season_synced_at(key)
         ttl = ttl_seconds(season, year, self.today())
-        if synced is None:
-            await self._refresh_season(year, season)
-        elif self.now() - synced > ttl and key not in self._refreshing:
-            self._refreshing.add(key)
-            self._spawn(self._refresh_quietly(year, season, key))
+        await self._ensure_fresh(key, ttl, f"сезон {key}", lambda: self._fetch_season(year, season))
         rows = await self.db.season_titles(season, year)
         return rows, await self.db.season_synced_at(key)
 
-    async def _refresh_quietly(self, year: int, season: str, key: str) -> None:
-        try:
-            await self._refresh_season(year, season)
-        except AniListError as e:
-            logger.warning("не удалось обновить сезон %s: %s", key, e)
-        finally:
-            self._refreshing.discard(key)
-
-    async def _refresh_season(self, year: int, season: str) -> None:
-        key = f"{year}-{season}"
-        async with self._locks[key]:
-            synced = await self.db.season_synced_at(key)
-            if synced is not None and self.now() - synced <= ttl_seconds(season, year, self.today()):
-                return  # пока ждали замок, сезон уже обновил другой запрос
-
-            media: list[dict] = []
-            page, has_next = 1, True
-            while has_next and page <= MAX_PAGES:
-                chunk, has_next = await self.anilist.season_page(season, year, page)
-                media.extend(chunk)
-                page += 1
-
-            ids = await self._store(media)
-            if not has_next:
-                dropped = await self.db.release_from_season(season, year, ids)
-                if dropped:
-                    logger.info("сезон %s: убрано тайтлов, переехавших в другой сезон: %d", key, dropped)
-            await self.db.mark_season(key, self.now(), len(ids))
-            logger.info("сезон %s обновлён: %d тайтлов", key, len(ids))
-            await self._enrich_ru(sorted(ids), wait=8.0)
+    async def _fetch_season(self, year: int, season: str) -> set[int]:
+        media, complete = await self._collect(lambda page: self.anilist.season_page(season, year, page), MAX_PAGES)
+        ids = await self._store(media)
+        if complete:  # иначе часть тайтлов сезона просто не дошла — выпускать из сезона рано
+            dropped = await self.db.release_from_season(season, year, ids)
+            if dropped:
+                logger.info("сезон %s-%s: убрано тайтлов, переехавших в другой сезон: %d", year, season, dropped)
+        return ids
 
     # --- анонсы без даты --------------------------------------------------------
 
     async def tba(self) -> tuple[list[dict], int | None]:
-        synced = await self.db.season_synced_at(TBA_KEY)
-        if synced is None:
-            await self._refresh_tba()
-        elif self.now() - synced > TBA_TTL and TBA_KEY not in self._refreshing:
-            self._refreshing.add(TBA_KEY)
-            self._spawn(self._refresh_tba_quietly())
+        await self._ensure_fresh(TBA_KEY, TBA_TTL, "анонсы без даты", self._fetch_tba)
         synced = await self.db.season_synced_at(TBA_KEY)
         return await self.db.tba_titles((synced or 0) - TBA_WINDOW), synced
 
-    async def _refresh_tba_quietly(self) -> None:
-        try:
-            await self._refresh_tba()
-        except AniListError as e:
-            logger.warning("не удалось обновить анонсы без даты: %s", e)
-        finally:
-            self._refreshing.discard(TBA_KEY)
-
-    async def _refresh_tba(self) -> None:
-        async with self._locks[TBA_KEY]:
-            synced = await self.db.season_synced_at(TBA_KEY)
-            if synced is not None and self.now() - synced <= TBA_TTL:
-                return  # пока ждали замок, анонсы уже обновил другой запрос
-            media: list[dict] = []
-            page, has_next = 1, True
-            while has_next and page <= MAX_TBA_PAGES:
-                chunk, has_next = await self.anilist.tba_page(page)
-                media.extend(m for m in chunk if is_tba(m))
-                page += 1
-            ids = await self._store(media)
-            await self.db.mark_season(TBA_KEY, self.now(), len(ids))
-            logger.info("анонсы без даты обновлены: %d тайтлов", len(ids))
-            await self._enrich_ru(sorted(ids), wait=8.0)
+    async def _fetch_tba(self) -> set[int]:
+        media, _ = await self._collect(self.anilist.tba_page, MAX_TBA_PAGES)
+        return await self._store([m for m in media if is_tba(m)])
 
     async def prewarm(self) -> None:
         """Текущий и следующий сезоны — к моменту первого визита."""

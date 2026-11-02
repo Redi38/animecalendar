@@ -296,3 +296,22 @@ async def test_list_queries_skip_heavy_columns_but_detail_has_them(catalog):
     assert rows and "description" not in rows[0] and "search_text" not in rows[0]
     detail = await catalog.detail(rows[0]["id"])
     assert detail["description"]
+
+
+async def test_concurrent_first_tba_requests_share_one_fetch(catalog: Catalog, anilist):
+    await asyncio.gather(*(catalog.tba() for _ in range(5)))
+    first_pass = anilist.count("tba_page")
+    assert first_pass >= 1
+    assert sorted(a[0] for n, a in anilist.calls if n == "tba_page") == list(range(1, first_pass + 1)), (
+        "каждая страница запрошена один раз"
+    )
+    await catalog.tba()
+    assert anilist.count("tba_page") == first_pass, "свежие анонсы повторно не запрашиваются"
+
+
+async def test_stale_season_triggers_a_single_background_refresh(catalog: Catalog, anilist, clock):
+    await catalog.season(2026, "FALL")
+    clock.advance(4 * 3600)
+    await asyncio.gather(*(catalog.season(2026, "FALL") for _ in range(5)))
+    await catalog.drain()
+    assert anilist.count("season_page") == 21~j0han_st: ПРИЦЕЛ КАК В КОЛЛ ОФ ДЬЮТИ
