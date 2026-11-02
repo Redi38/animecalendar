@@ -1,5 +1,6 @@
 import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
+import { orderDays } from "../daygroups.js";
 import { errorBox } from "../ui/error.js";
 import { replayEnter } from "../ui/motion.js";
 import { seasonIndex, seasonStep } from "../seasons.js";
@@ -192,8 +193,7 @@ export function renderSeason(root, { year, slug }, ctx, isCurrent) {
         undated.push(item);
       }
     }
-    const groups = [...byDay.keys()]
-      .sort()
+    const groups = orderDays([...byDay.keys()], todayIso())
       .map((day) => ({ key: day, day, title: capitalize(formatStart(day, "day", "group")), items: byDay.get(day) }));
     if (undated.length) groups.push({ key: "undated", title: "Дата выхода уточняется", items: undated });
     return groups;
@@ -241,36 +241,7 @@ export function renderSeason(root, { year, slug }, ctx, isCurrent) {
       ),
     );
     clear(content).append(count, ...sections);
-    if (nearestDayGroup()) {
-      // Кнопка вместо автопрокрутки на телефоне: по умолчанию страница остаётся сверху, у настроек.
-      const bar = h("div", { class: "result-bar" });
-      count.replaceWith(bar);
-      bar.append(
-        count,
-        h(
-          "button",
-          { type: "button", class: "link-btn", onclick: () => nearestDayGroup()?.scrollIntoView({ behavior: "smooth", block: "start" }) },
-          "↓ К ближайшему дню",
-        ),
-      );
-    }
     if (animate) replayEnter(content);
-  }
-
-  /** Ближайший день с релизами для текущего сезона; null, если прокручивать некуда. */
-  function nearestDayGroup() {
-    const now = meta.current;
-    if (now.year !== year || now.season.toLowerCase() !== slug || prefs.group !== "day") return null;
-    const today = todayIso();
-    const groups = [...content.querySelectorAll(".day-group[data-day]")];
-    const target = groups.find((el) => el.dataset.day >= today);
-    return target && target !== groups[0] ? target : null;
-  }
-
-  function scrollToToday() {
-    // На телефоне не прокручиваем сами: иначе фильтры остаются высоко над экраном.
-    if (window.matchMedia("(max-width: 640px)").matches) return;
-    nearestDayGroup()?.scrollIntoView({ block: "start" });
   }
 
   paintToolbar();
@@ -280,7 +251,6 @@ export function renderSeason(root, { year, slug }, ctx, isCurrent) {
       if (!isCurrent()) return;
       data = loaded;
       paintList();
-      scrollToToday();
     })
     .catch((err) => {
       if (err.name === "AbortError" || !isCurrent()) return;
