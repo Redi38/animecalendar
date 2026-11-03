@@ -328,6 +328,22 @@ dialog { overscroll-behavior: contain; }
 .confirm-text { color: var(--muted); font-size: 14px; line-height: 1.5; }
 .confirm-actions { display: flex; gap: 10px; margin-top: 8px; width: 100%; }
 .confirm-actions .btn { flex: 1; }
+.tcard-imported { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dialog-menu { position: sticky; top: 10px; float: right; margin: 10px 8px 0 0; z-index: 3; }
+.dialog-menu-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--card); color: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
+.dialog-menu-btn:hover { background: var(--card-2); }
+.dialog-menu-list { position: absolute; top: 42px; right: 0; min-width: 170px; padding: 6px; display: flex; flex-direction: column; background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+.dialog-menu-list[hidden] { display: none; }
+.dialog-menu-item { padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; font-weight: 700; text-align: left; cursor: pointer; }
+.dialog-menu-item:hover, .dialog-menu-item:focus-visible { background: var(--card-2); }
+.replace-dialog { width: min(520px, calc(100vw - 24px)); }
+.pick-body { padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+.pick-body h2 { font-size: 20px; font-weight: 800; line-height: 1.25; }
+.pick-input { width: 100%; padding: 10px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; }
+.pick-input:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.pick-list { display: flex; flex-direction: column; gap: 2px; max-height: min(52vh, 420px); overflow-y: auto; }
+.pick-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px; border: 0; border-radius: var(--radius-sm); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.pick-row:hover, .pick-row:focus-visible { background: var(--card-2); }
 @media (max-width: 420px) { .confirm-actions { flex-direction: column-reverse; } }
 
 /* --- анимации -------------------------------------------------------------------------

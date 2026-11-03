@@ -1,4 +1,5 @@
 import { api } from "../api.js";
+import { store } from "../store.js";
 import { groupRelations } from "../relations.js";
 import { clear, formatEpisodes, formatStart, h } from "../util.js";
 import { coverEl, statusChip, watchButton } from "./card.js";
@@ -141,10 +142,62 @@ function body(d) {
   ];
 }
 
+/** Меню «⋯» слева от крестика. Сейчас в нём один пункт — «Переименовать» (если тайтл исправляют из списка просмотренного). */
+function titleMenu(d, onRename) {
+  const setOpen = (open) => {
+    list.hidden = !open;
+    btn.setAttribute("aria-expanded", String(open));
+    if (open) item.focus();
+  };
+  const item = h(
+    "button",
+    {
+      type: "button",
+      class: "dialog-menu-item",
+      role: "menuitem",
+      onclick: () => {
+        setOpen(false);
+        onRename(d);
+      },
+    },
+    "Переименовать",
+  );
+  const list = h("div", { class: "dialog-menu-list", role: "menu", hidden: true }, item);
+  const btn = h(
+    "button",
+    {
+      type: "button",
+      class: "dialog-menu-btn",
+      "aria-label": "Меню тайтла",
+      "aria-haspopup": "menu",
+      "aria-expanded": "false",
+      onclick: () => setOpen(list.hidden),
+    },
+    "⋯",
+  );
+  const root = h("div", { class: "dialog-menu" }, btn, list);
+  root.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || list.hidden) return;
+    event.preventDefault();
+    event.stopPropagation(); // Esc закрывает меню, а не всю карточку
+    setOpen(false);
+    btn.focus();
+  });
+  return root;
+}
+
+function closeMenus(dialog) {
+  for (const list of dialog.querySelectorAll(".dialog-menu-list")) list.hidden = true;
+  for (const btn of dialog.querySelectorAll(".dialog-menu-btn")) btn.setAttribute("aria-expanded", "false");
+}
+
 let controller = null;
 
-/** Открывает карточку. onClose вызывается, когда пользователь закрыл окно сам (Esc, крестик, клик по фону). */
-export function openTitleDialog(id, onClose) {
+/**
+ * Открывает карточку.
+ * options.onRename(d) — если задан, а тайтл в списке просмотренного, в карточке появляется меню «⋯» с пунктом «Переименовать».
+ * onClose вызывается, когда пользователь закрыл окно сам (Esc, крестик, клик по фону). */
+export function openTitleDialog(id, onClose, { onRename } = {}) {
   const dialog = document.getElementById("title-dialog");
   controller?.abort();
   controller = new AbortController();
@@ -168,6 +221,7 @@ export function openTitleDialog(id, onClose) {
   };
   dialog.onclick = (event) => {
     if (event.target === dialog) closeDialogAnimated(dialog);
+    else if (!event.target.closest?.(".dialog-menu")) closeMenus(dialog);
   };
 
   leave.then(() => {
@@ -183,6 +237,7 @@ export function openTitleDialog(id, onClose) {
       if (signal.aborted) return;
       const holder = dialog.querySelector(".dialog-body");
       clear(holder).append(...body(d));
+      if (onRename && store.has(d.id)) dialog.querySelector(".dialog-close")?.after(titleMenu(d, onRename));
       upgradeWatchLink(holder, d, signal);
       holder.classList.add("is-entering");
       setTimeout(() => holder.classList.remove("is-entering"), 900);

@@ -101,6 +101,16 @@ export function renderWatched(root, ctx, isCurrent) {
     clear(report).append(h("div", { class: "notice", role: "alert" }, parts));
   }
 
+  /** Карточка списка; для импортированных тайтлов показываем название из файла, чтобы заметить неверное совпадение. */
+  function watchedCard(item) {
+    const card = titleCard(item, { showDate: true });
+    const source = store.importedAs(item.id);
+    if (source && source !== item.title) {
+      card.querySelector(".tcard-body").append(h("p", { class: "tcard-imported", title: "Название в вашем файле" }, `Из файла: «${source}»`));
+    }
+    return card;
+  }
+
   async function importTitles({ titles, skipped }) {
     if (importing) return;
     importing = true;
@@ -113,7 +123,7 @@ export function renderWatched(root, ctx, isCurrent) {
         },
         controller.signal,
       );
-      store.addMany(found.map((f) => f.id));
+      store.addImported(found);
       const inList = new Set(store.ids());
       for (const f of found) {
         if (!inList.has(f.id)) failed.push({ title: f.title, reason: "список переполнен, максимум 500 тайтлов" });
@@ -247,7 +257,7 @@ export function renderWatched(root, ctx, isCurrent) {
         ),
       );
     }
-    parts.push(h("div", { class: "grid" }, items.map((item) => titleCard(item, { showDate: true }))));
+    parts.push(h("div", { class: "grid" }, items.map(watchedCard)));
     clear(list).append(...parts);
   }
 

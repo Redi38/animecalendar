@@ -3,6 +3,7 @@ import { store } from "./store.js";
 import { syncWatchButtons } from "./ui/card.js";
 import { errorBox } from "./ui/error.js";
 import { closeTitleDialog, openTitleDialog, setWatchTemplate } from "./ui/modal.js";
+import { replaceDialog } from "./ui/replace.js";
 import { initSearch } from "./ui/search.js";
 import { toast } from "./ui/toast.js";
 import { initThemeToggle } from "./theme.js";
@@ -205,6 +206,17 @@ function showPage(route) {
   view.focus({ preventScroll: true });
 }
 
+// «Переименовать» в карточке из списка просмотренного: пользователь выбирает правильный тайтл,
+// он встаёт на место ошибочного, а карточка переключается на него.
+async function renameTitle(d) {
+  const picked = await replaceDialog({ current: d, query: store.importedAs(d.id) || d.title });
+  if (!picked) return;
+  const result = store.replace(d.id, picked.id);
+  if (result === "unchanged") return;
+  toast(result === "merged" ? `«${picked.title}» уже был в списке, прежний тайтл убран` : `Тайтл переименован: «${picked.title}»`);
+  location.replace(`#/title/${picked.id}`);
+}
+
 function onRoute() {
   if (!ctx.meta) return;
   const route = parseRoute(location.hash);
@@ -215,12 +227,17 @@ function onRoute() {
       baseHash = `#/season/${year}/${season.toLowerCase()}`;
       showPage({ name: "season", year, slug: season.toLowerCase() });
     }
-    openTitleDialog(route.id, () => {
-      // Пользователь закрыл окно сам — возвращаем адрес страницы под ним.
-      const target = baseHash && !baseHash.startsWith("#/title/") ? baseHash : "#/";
-      history.replaceState(null, "", target);
-      document.title = pageTitle;
-    });
+    const fromWatched = baseHash === "#/watched";
+    openTitleDialog(
+      route.id,
+      () => {
+        // Пользователь закрыл окно сам — возвращаем адрес страницы под ним.
+        const target = baseHash && !baseHash.startsWith("#/title/") ? baseHash : "#/";
+        history.replaceState(null, "", target);
+        document.title = pageTitle;
+      },
+      fromWatched ? { onRename: renameTitle } : {},
+    );
     return;
   }
   const dialog = document.getElementById("title-dialog");
