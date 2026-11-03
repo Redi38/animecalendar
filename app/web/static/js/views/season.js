@@ -2,6 +2,7 @@ import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
 import { orderDays } from "../daygroups.js";
 import { errorBox } from "../ui/error.js";
+import { selectField } from "../ui/select.js";
 import { replayEnter } from "../ui/motion.js";
 import { seasonIndex, seasonStep } from "../seasons.js";
 import { readJson, writeJson } from "../storage.js";
@@ -39,10 +40,12 @@ function seasonNav(meta, year, slug) {
   const { current, min_year: minYear, max_year: maxYear } = meta;
   const years = [];
   for (let y = maxYear; y >= minYear; y--) years.push(y);
-  const select = h(
-    "select",
-    { class: "year-select", "aria-label": "Год", onchange: (e) => (location.hash = `#/season/${e.target.value}/${slug}`) },
-    years.map((y) => h("option", { value: y, selected: y === year }, String(y))),
+  const select = selectField(
+    h(
+      "select",
+      { class: "year-select", "aria-label": "Год", onchange: (e) => (location.hash = `#/season/${e.target.value}/${slug}`) },
+      years.map((y) => h("option", { value: y, selected: y === year }, String(y))),
+    ),
   );
   const slugs = meta.seasons.map((s) => s.slug);
   const step = (delta) => {

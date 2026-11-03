@@ -43,6 +43,19 @@
   color-scheme: light;
 }
 
+/* Тонкие полосы прокрутки. WebKit/Blink: размер задаём сами (6 px вместо ~15 px системных); Firefox: стандартные свойства. */
+:root {
+  --scroll-thumb: color-mix(in srgb, var(--muted) 45%, transparent);
+  --scroll-thumb-hover: color-mix(in srgb, var(--muted) 75%, transparent);
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border: 2px solid transparent; border-radius: 999px; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); background-clip: content-box; }
+@supports (-moz-appearance: none) {
+  * { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
+}
+
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body {
@@ -149,7 +162,26 @@ h1, h2, h3, p { margin: 0; }
 .icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--card); border: 1px solid var(--border); text-decoration: none; font-size: 22px; line-height: 1; }
 .icon-btn:hover { background: var(--card-2); }
 .icon-btn.is-disabled { opacity: 0.35; }
-.year-select { padding: 7px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); font-weight: 700; }
+.year-select { padding: 7px 36px 7px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); font-weight: 700; appearance: none; cursor: pointer; }
+.year-select option { background: var(--card); color: var(--text); }
+
+/* Поле выбора: стрелку рисует CSS, поэтому она одного размера и цвета везде и подстраивается под тему. */
+.select-field { position: relative; display: inline-flex; align-items: center; }
+.select-field::after { content: ""; position: absolute; right: 15px; top: 50%; width: 6px; height: 6px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: translateY(-75%) rotate(45deg); pointer-events: none; transition: border-color 0.18s ease; }
+.select-field:hover::after, .select-field:focus-within::after { border-color: var(--primary); }
+.year-select:focus { outline: none; }
+.year-select:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* Chromium с настраиваемым <select>: оформляем и сам выпадающий список; в остальных браузерах он системный. */
+@supports (appearance: base-select) {
+  .select-field select, .select-field select::picker(select) { appearance: base-select; }
+  .select-field select::picker-icon { display: none; }
+  .select-field select::picker(select) { margin-top: 6px; padding: 4px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); color: var(--text); box-shadow: var(--shadow); }
+  .select-field option { padding: 8px 12px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+  .select-field option:hover, .select-field option:focus-visible { background: var(--card-2); outline: none; }
+  .select-field option:checked { color: var(--primary); font-weight: 800; }
+  .select-field option::checkmark { display: none; }
+}
 .season-tabs { display: flex; gap: 4px; padding: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 999px; }
 .season-tab { position: relative; text-decoration: none; padding: 7px 16px; border-radius: 999px; font-weight: 700; color: var(--muted); }
 .season-tab:hover { color: var(--text); }
@@ -370,7 +402,8 @@ html[data-enter] .container > :nth-child(n + 7) { animation-delay: 300ms; }
   .season-nav { gap: 8px; margin-bottom: 10px; }
   .year-nav { order: 1; gap: 4px; }
   .icon-btn { width: 32px; height: 32px; font-size: 20px; }
-  .year-select { padding: 5px 10px; font-size: 14px; }
+  .year-select { padding: 5px 30px 5px 10px; font-size: 14px; }
+  .select-field::after { right: 12px; }
   .season-nav > .btn { order: 2; margin-left: auto; padding: 6px 12px; font-size: 13px; }
   .season-tabs { order: 3; width: 100%; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; padding: 3px; }
   .season-tab { padding: 8px 0; text-align: center; font-size: 13px; white-space: nowrap; }
