@@ -258,8 +258,30 @@ h1, h2, h3, p { margin: 0; }
 
 /* --- окно тайтла ------------------------------------------------------------------- */
 
+/* Выпадающий список (сортировка в «Просмотрено»): плавное появление, стрелка переворачивается при открытии. */
+.dropdown { position: relative; display: inline-block; }
+.dropdown-trigger, .dropdown-option { user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+.dropdown-trigger { display: inline-flex; align-items: center; gap: 10px; padding: 7px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); color: var(--text); font: inherit; font-weight: 700; cursor: pointer; transition: border-color 0.18s ease; }
+.dropdown-trigger:hover, .dropdown.is-open .dropdown-trigger { border-color: var(--primary); }
+.dropdown-trigger:focus, .dropdown-option:focus { outline: none; } /* кольцо только при навигации с клавиатуры */
+.dropdown-trigger:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.dropdown-value { display: grid; text-align: left; }
+.dropdown-value > span { grid-area: 1 / 1; visibility: hidden; white-space: nowrap; }
+.dropdown-value > span.is-current { visibility: visible; }
+.dropdown-chevron { flex: none; width: 6px; height: 6px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: translateY(-2px) rotate(45deg); transition: transform 0.2s ease, border-color 0.18s ease; }
+.dropdown.is-open .dropdown-chevron { transform: translateY(2px) rotate(225deg); border-color: var(--primary); }
+.dropdown-menu { position: absolute; left: 0; top: calc(100% + 6px); z-index: 15; min-width: 100%; margin: 0; padding: 4px; list-style: none; background: var(--card); border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(-6px) scale(0.98); transform-origin: top left; transition: opacity 0.16s ease, transform 0.16s ease, visibility 0s linear 0.16s; }
+.dropdown.is-open .dropdown-menu { opacity: 1; visibility: visible; pointer-events: auto; transform: none; transition: opacity 0.16s ease, transform 0.16s ease, visibility 0s; }
+.dropdown-option { padding: 8px 12px; border-radius: 10px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.dropdown-option:hover { background: var(--card-2); }
+.dropdown-option:focus-visible { background: var(--card-2); box-shadow: inset 0 0 0 2px var(--primary); }
+.dropdown-option[aria-selected="true"] { color: var(--primary); font-weight: 800; }
+
 dialog { color: var(--text); background: var(--bg-2); border: 1px solid var(--border); border-radius: 18px; padding: 0; width: min(760px, calc(100vw - 24px)); max-height: calc(100vh - 32px); box-shadow: var(--shadow); overflow: auto; }
 dialog::backdrop { background: rgba(6, 5, 10, 0.72); backdrop-filter: blur(3px); }
+/* Пока открыто окно, страница под ним не прокручивается; gutter не даёт ей «прыгнуть» при скрытии полосы прокрутки. */
+html:has(dialog[open]) { overflow: hidden; scrollbar-gutter: stable; }
+dialog { overscroll-behavior: contain; }
 .dialog-body { padding: 24px; }
 .dialog-close { position: sticky; top: 10px; float: right; margin: 10px 10px 0 0; width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--card); cursor: pointer; z-index: 2; }
 .dialog-head { display: flex; gap: 20px; margin-bottom: 18px; }
@@ -283,8 +305,6 @@ dialog::backdrop { background: rgba(6, 5, 10, 0.72); backdrop-filter: blur(3px);
 .rel-kind { font-size: 12px; color: var(--primary); font-weight: 700; }
 .rel-title { font-weight: 700; }
 .rel-meta { font-size: 12.5px; color: var(--muted); }
-.ext-links { margin-top: 18px; color: var(--muted); font-size: 14px; }
-.ext-links a { color: var(--primary); }
 
 @media (max-width: 560px) {
   .dialog-body { padding: 16px; }
@@ -404,6 +424,7 @@ html[data-enter] .container > :nth-child(n + 7) { animation-delay: 300ms; }
   .icon-btn { width: 32px; height: 32px; font-size: 20px; }
   .year-select { padding: 5px 30px 5px 10px; font-size: 14px; }
   .select-field::after { right: 12px; }
+  .dropdown-trigger { padding: 5px 12px; font-size: 14px; }
   .season-nav > .btn { order: 2; margin-left: auto; padding: 6px 12px; font-size: 13px; }
   .season-tabs { order: 3; width: 100%; display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; padding: 3px; }
   .season-tab { padding: 8px 0; text-align: center; font-size: 13px; white-space: nowrap; }

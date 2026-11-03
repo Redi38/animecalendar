@@ -52,7 +52,6 @@ def build_catalog(cfg: Settings) -> Catalog:
         Database(cfg.DB_PATH),
         anilist,
         shikimori,
-        shikimori_base=cfg.SHIKIMORI_BASE,
         allow_adult=cfg.ALLOW_ADULT,
     )
 

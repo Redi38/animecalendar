@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from app.demo import BASE_ID, MAL_OFFSET
+from app.demo import BASE_ID
 from app.providers.anilist import AniListError
 from app.services.catalog import Catalog, NotFound
 from app.services.related_service import RELATIONS_TTL_ACTIVE
@@ -162,8 +162,7 @@ async def test_detail_lists_relations_with_russian_labels(catalog: Catalog):
         (LANTERN[0], "Предыстория"),
         (LANTERN[2], "Продолжение"),
     ]
-    assert d["links"]["anilist"].endswith(f"/anime/{LANTERN[1]}")
-    assert d["links"]["mal"].endswith(f"/anime/{LANTERN[1] + MAL_OFFSET}")
+    assert "links" not in d
 
 
 async def test_detail_unknown_title(catalog: Catalog):

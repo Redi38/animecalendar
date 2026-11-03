@@ -77,12 +77,6 @@ function body(d) {
   const next = d.next_episode
     ? `Серия ${d.next_episode.number ?? "?"}: ${new Date(d.next_episode.at * 1000).toLocaleString("ru", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}`
     : null;
-  const links = [
-    d.links.shikimori ? h("a", { href: d.links.shikimori, target: "_blank", rel: "noopener noreferrer" }, "Shikimori") : null,
-    d.links.anilist ? h("a", { href: d.links.anilist, target: "_blank", rel: "noopener noreferrer" }, "AniList") : null,
-    d.links.mal ? h("a", { href: d.links.mal, target: "_blank", rel: "noopener noreferrer" }, "MyAnimeList") : null,
-  ].filter(Boolean);
-
   return [
     h(
       "div",
@@ -143,9 +137,6 @@ function body(d) {
             ),
           ),
         )
-      : null,
-    links.length
-      ? h("p", { class: "ext-links" }, "Подробнее: ", links.flatMap((a, i) => (i ? [" · ", a] : [a])))
       : null,
   ];
 }

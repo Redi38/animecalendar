@@ -3,7 +3,7 @@ import { titleCard } from "../ui/card.js";
 import { toast } from "../ui/toast.js";
 import { confirmDialog } from "../ui/confirm.js";
 import { errorBox } from "../ui/error.js";
-import { selectField } from "../ui/select.js";
+import { dropdown } from "../ui/dropdown.js";
 import { replayEnter } from "../ui/motion.js";
 import { storageGet, storageSet } from "../storage.js";
 import { clear, formatTitles, h, plural } from "../util.js";
@@ -192,26 +192,22 @@ export function renderWatched(root, ctx, isCurrent) {
       "Очистить",
     ),
     h(
-      "label",
+      "div",
       { class: "sort-label" },
-      "Сортировка: ",
-      selectField(
-        h(
-          "select",
-          {
-            class: "year-select",
-            onchange: (e) => {
-              sort = e.target.value;
-              saveSort(sort);
-              if (lastLoad) {
-                renderList();
-                replayEnter(list);
-              }
-            },
-          },
-          SORTS.map((o) => h("option", { value: o.id, selected: o.id === sort }, o.label)),
-        ),
-      ),
+      h("span", null, "Сортировка:"),
+      dropdown({
+        label: "Сортировка",
+        options: SORTS,
+        value: sort,
+        onChange: (id) => {
+          sort = id;
+          saveSort(sort);
+          if (lastLoad) {
+            renderList();
+            replayEnter(list);
+          }
+        },
+      }),
     ),
     fileInput,
   );

@@ -93,7 +93,6 @@ def detail(
     *,
     now: int,
     relations: list[dict[str, Any]],
-    shikimori_base: str,
 ) -> dict[str, Any]:
     out = card(row, now=now)
     ru_text = row.get("description_ru")
@@ -108,11 +107,6 @@ def detail(
             "description": ru_text or row.get("description"),
             "description_lang": "ru" if ru_text else ("en" if row.get("description") else None),
             "relations": relations,
-            "links": {
-                "anilist": f"https://anilist.co/anime/{row['id']}",
-                "mal": f"https://myanimelist.net/anime/{row['mal_id']}" if row.get("mal_id") else None,
-                "shikimori": f"{shikimori_base.rstrip('/')}/animes/{row['mal_id']}" if row.get("mal_id") else None,
-            },
         }
     )
     return out

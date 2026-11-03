@@ -44,7 +44,6 @@ class Catalog:
         anilist: AniListPort,
         shikimori: ShikimoriPort,
         *,
-        shikimori_base: str = "https://shikimori.io",
         clock: Callable[[], float] = time.time,
         allow_adult: bool = False,
     ) -> None:
@@ -52,7 +51,6 @@ class Catalog:
         self.db = db
         self.anilist = anilist
         self.shikimori = shikimori
-        self.shikimori_base = shikimori_base
         self._clock = clock
         self._ingest = Ingest(db, anilist, shikimori, clock=clock, allow_adult=allow_adult)
         self._sync = SyncService(self._ingest)
@@ -143,7 +141,7 @@ class Catalog:
         relations = [dto.relation_entry(targets[t], rel, now=now) for t, rel in edges if t in targets]
         order = {"PREQUEL": 0, "SEQUEL": 1, "PARENT": 2, "SIDE_STORY": 3, "SPIN_OFF": 4}
         relations.sort(key=lambda r: (order.get(r["relation"], 9), r["start"] or "9999"))
-        return dto.detail(row, now=now, relations=relations, shikimori_base=self.shikimori_base)
+        return dto.detail(row, now=now, relations=relations)
 
     async def watch_query(self, title_id: int) -> tuple[list[str], int | None, int | None]:
         """Данные для поиска страницы тайтла на сайте просмотра: (названия, MAL ID, год)."""
