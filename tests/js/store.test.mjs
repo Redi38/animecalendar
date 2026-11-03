@@ -49,3 +49,24 @@ test("исходные названия переживают перезапис�
   assert.equal(store.importedAs(7), null);
   assert.deepEqual(JSON.parse(memory.get("anime_calendar_v1")).imported, {});
 });
+
+test("ignore скрывает тайтл, restore возвращает; список переживает перезагрузку", async () => {
+  assert.equal(store.ignore(7), true);
+  assert.equal(store.ignore(7), true); // повторный вызов безопасен
+  assert.equal(store.isIgnored(7), true);
+  assert.deepEqual(store.ignoredIds(), [7]);
+  assert.equal(JSON.parse(memory.get("anime_calendar_v1")).ignored[0], 7);
+  assert.equal(store.restore(7), true);
+  assert.equal(store.isIgnored(7), false);
+  assert.equal(store.restore(7), false); // уже возвращён
+});
+
+test("ignore отклоняет некорректные id и не зависит от списка просмотренного", () => {
+  store.clear();
+  assert.equal(store.ignore(-1), false);
+  assert.equal(store.ignore(1.5), false);
+  store.ignore(11);
+  store.clear(); // «Очистить» просмотренное не должно возвращать скрытые тайтлы
+  assert.equal(store.isIgnored(11), true);
+  store.restore(11);
+});

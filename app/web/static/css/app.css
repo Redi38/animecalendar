@@ -315,8 +315,10 @@ dialog { overscroll-behavior: contain; }
 /* --- уведомления --------------------------------------------------------------------- */
 
 .toasts { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 200; width: min(420px, calc(100vw - 24px)); }
-.toast { background: var(--card-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; box-shadow: var(--shadow); font-weight: 600; }
+.toast { background: var(--card-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; box-shadow: var(--shadow); font-weight: 600; text-align: center; }
+.toast-accent { color: var(--primary); font-size: 16px; font-weight: 700; }
 .toast-error { border-color: var(--danger); }
+.toast-hint { display: block; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); color: var(--primary); font-size: 16px; font-weight: 700; }
 
 /* Окно подтверждения (очистка списка просмотренного и т. п.) */
 .confirm-dialog { width: min(420px, calc(100vw - 24px)); }
@@ -329,12 +331,15 @@ dialog { overscroll-behavior: contain; }
 .confirm-actions { display: flex; gap: 10px; margin-top: 8px; width: 100%; }
 .confirm-actions .btn { flex: 1; }
 .tcard-imported { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ignored-link[hidden] { display: none; }
+.back-link { display: inline-block; margin-bottom: 8px; color: var(--muted); font-weight: 700; text-decoration: none; }
+.back-link:hover { color: var(--text); }
 .dialog-menu { position: sticky; top: 10px; float: right; margin: 10px 8px 0 0; z-index: 3; }
 .dialog-menu-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--card); color: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
 .dialog-menu-btn:hover { background: var(--card-2); }
-.dialog-menu-list { position: absolute; top: 42px; right: 0; min-width: 170px; padding: 6px; display: flex; flex-direction: column; background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+.dialog-menu-list { position: absolute; top: 42px; right: 0; width: max-content; padding: 6px; display: flex; flex-direction: column; background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
 .dialog-menu-list[hidden] { display: none; }
-.dialog-menu-item { padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; font-weight: 700; text-align: left; cursor: pointer; }
+.dialog-menu-item { padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; font-weight: 700; text-align: left; white-space: nowrap; cursor: pointer; }
 .dialog-menu-item:hover, .dialog-menu-item:focus-visible { background: var(--card-2); }
 .replace-dialog { width: min(520px, calc(100vw - 24px)); }
 .pick-body { padding: 24px; display: flex; flex-direction: column; gap: 12px; }
@@ -364,10 +369,10 @@ dialog { overscroll-behavior: contain; }
 @keyframes badge-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 59, 129, 0.55); } 60% { box-shadow: 0 0 0 7px rgba(255, 59, 129, 0); } }
 
 /* плавные состояния у всех интерактивных элементов */
-.btn, .icon-btn, .filter-chip, .nav a, .season-tab, .watch-btn, .sug, .rel-row, .dialog-close, .year-select, .inline-filter, .search input, .tcard-title a {
+.btn, .icon-btn, .filter-chip, .nav a, .season-tab, .watch-btn, .sug, .rel-row, .dialog-close, .dialog-menu-btn, .year-select, .inline-filter, .search input, .tcard-title a {
   transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease, opacity 0.18s ease;
 }
-.btn:active, .icon-btn:active, .filter-chip:active, .watch-btn:active, .dialog-close:active { transform: scale(0.95); }
+.btn:active, .icon-btn:active, .filter-chip:active, .watch-btn:active, .dialog-close:active, .dialog-menu-btn:active { transform: scale(0.95); }
 .btn:hover, .icon-btn:hover { transform: translateY(-1px); }
 .inline-filter:focus, .search input:focus, .year-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.18); }
 .nav a:hover, .season-tab:hover { transform: translateY(-1px); }

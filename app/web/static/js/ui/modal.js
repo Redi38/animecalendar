@@ -142,27 +142,32 @@ function body(d) {
   ];
 }
 
-/** Меню «⋯» слева от крестика. Сейчас в нём один пункт — «Переименовать» (если тайтл исправляют из списка просмотренного). */
-function titleMenu(d, onRename) {
+/**
+ * Меню «⋯» слева от крестика. actions: [{ label, run }] — пункты меню
+ * («Переименовать» в списке просмотренного, «Игнорировать» в «Моих анонсах», «Вернуть» в скрытых).
+ */
+function titleMenu(d, actions) {
   const setOpen = (open) => {
     list.hidden = !open;
     btn.setAttribute("aria-expanded", String(open));
-    if (open) item.focus();
+    if (open) items[0].focus();
   };
-  const item = h(
-    "button",
-    {
-      type: "button",
-      class: "dialog-menu-item",
-      role: "menuitem",
-      onclick: () => {
-        setOpen(false);
-        onRename(d);
+  const items = actions.map((a) =>
+    h(
+      "button",
+      {
+        type: "button",
+        class: "dialog-menu-item",
+        role: "menuitem",
+        onclick: () => {
+          setOpen(false);
+          a.run(d);
+        },
       },
-    },
-    "Переименовать",
+      a.label,
+    ),
   );
-  const list = h("div", { class: "dialog-menu-list", role: "menu", hidden: true }, item);
+  const list = h("div", { class: "dialog-menu-list", role: "menu", hidden: true }, items);
   const btn = h(
     "button",
     {
@@ -196,8 +201,9 @@ let controller = null;
 /**
  * Открывает карточку.
  * options.onRename(d) — если задан, а тайтл в списке просмотренного, в карточке появляется меню «⋯» с пунктом «Переименовать».
+ * options.onIgnore(d) — «Игнорировать» (карточка открыта из «Моих анонсов»); options.onRestore(d) — «Вернуть» (из «Скрытых тайтлов»).
  * onClose вызывается, когда пользователь закрыл окно сам (Esc, крестик, клик по фону). */
-export function openTitleDialog(id, onClose, { onRename } = {}) {
+export function openTitleDialog(id, onClose, { onRename, onIgnore, onRestore } = {}) {
   const dialog = document.getElementById("title-dialog");
   controller?.abort();
   controller = new AbortController();
@@ -219,9 +225,18 @@ export function openTitleDialog(id, onClose, { onRename } = {}) {
     if (dialog.dataset.silent) return;
     onClose();
   };
+  // Нажали на кнопку, увели курсор за карточку и отпустили: браузер шлёт click на «затемнение».
+  // Закрываем только если и нажатие началось на затемнении.
+  let pressedOnBackdrop = false;
+  dialog.onpointerdown = (event) => {
+    pressedOnBackdrop = event.target === dialog;
+  };
   dialog.onclick = (event) => {
-    if (event.target === dialog) closeDialogAnimated(dialog);
+    if (event.target === dialog) {
+      if (pressedOnBackdrop) closeDialogAnimated(dialog);
+    }
     else if (!event.target.closest?.(".dialog-menu")) closeMenus(dialog);
+    pressedOnBackdrop = false;
   };
 
   leave.then(() => {
@@ -237,7 +252,11 @@ export function openTitleDialog(id, onClose, { onRename } = {}) {
       if (signal.aborted) return;
       const holder = dialog.querySelector(".dialog-body");
       clear(holder).append(...body(d));
-      if (onRename && store.has(d.id)) dialog.querySelector(".dialog-close")?.after(titleMenu(d, onRename));
+      const actions = [];
+      if (onRename && store.has(d.id)) actions.push({ label: "Переименовать", run: onRename });
+      if (onIgnore && !store.isIgnored(d.id)) actions.push({ label: "Игнорировать", run: onIgnore });
+      if (onRestore && store.isIgnored(d.id)) actions.push({ label: "Вернуть в анонсы", run: onRestore });
+      if (actions.length) dialog.querySelector(".dialog-close")?.after(titleMenu(d, actions));
       upgradeWatchLink(holder, d, signal);
       holder.classList.add("is-entering");
       setTimeout(() => holder.classList.remove("is-entering"), 900);

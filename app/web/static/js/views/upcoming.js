@@ -28,6 +28,15 @@ export function renderUpcoming(root, ctx, isCurrent) {
   const { store } = ctx;
   clear(root).append(h("h1", { class: "page-title" }, "Мои анонсы"));
 
+  /** Ссылка на «Скрытые тайтлы» со счётчиком; пустая, пока ничего не скрыто. */
+  const ignoredLink = h("a", { class: "btn btn-ghost ignored-link", href: "#/ignored" });
+  function paintIgnoredLink() {
+    const n = store.ignoredSize();
+    ignoredLink.hidden = n === 0;
+    ignoredLink.textContent = `Скрытые тайтлы (${n})`;
+  }
+  paintIgnoredLink();
+
   if (store.size() === 0) {
     root.append(
       h(
@@ -52,6 +61,7 @@ export function renderUpcoming(root, ctx, isCurrent) {
       { class: "lead" },
       `Связанные тайтлы по ${store.size()} ${plural(store.size(), ["просмотренному", "просмотренным", "просмотренным"])}. Показываем то, что ещё не вышло, выходит сейчас или вышло за последние 45 дней.`,
     ),
+    h("div", { class: "toolbar-actions" }, ignoredLink),
     body,
   );
 
@@ -60,7 +70,10 @@ export function renderUpcoming(root, ctx, isCurrent) {
   const firstVisit = !store.seenReady();
   const fresh = new Set();
 
-  function paint(data) {
+  function paint(source) {
+    paintIgnoredLink();
+    // Скрытые тайтлы остаются в данных, но в список и в счётчик «Новое» не попадают.
+    const data = { ...source, items: source.items.filter((i) => !store.isIgnored(i.id)) };
     if (!firstVisit) {
       for (const item of data.items) if (!store.isSeen(item.id)) fresh.add(item.id);
     }
@@ -93,7 +106,9 @@ export function renderUpcoming(root, ctx, isCurrent) {
           { class: "empty" },
           data.incomplete
             ? "Пока ничего не нашли, ищем дальше."
-            : "Для вашего списка пока нет анонсированных продолжений. Как только студии что-то объявят, это появится здесь.",
+            : source.items.length
+              ? "Все найденные анонсы скрыты. Вернуть их можно на странице «Скрытые тайтлы»."
+              : "Для вашего списка пока нет анонсированных продолжений. Как только студии что-то объявят, это появится здесь.",
         ),
       );
     } else {

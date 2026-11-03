@@ -3,6 +3,7 @@ import { store } from "./store.js";
 import { syncWatchButtons } from "./ui/card.js";
 import { errorBox } from "./ui/error.js";
 import { closeTitleDialog, openTitleDialog, setWatchTemplate } from "./ui/modal.js";
+import { closeDialogAnimated, replayEnter } from "./ui/motion.js";
 import { replaceDialog } from "./ui/replace.js";
 import { initSearch } from "./ui/search.js";
 import { toast } from "./ui/toast.js";
@@ -10,6 +11,7 @@ import { initThemeToggle } from "./theme.js";
 import { debounce, h } from "./util.js";
 import { renderSearch } from "./views/search.js";
 import { renderSeason } from "./views/season.js";
+import { renderIgnored } from "./views/ignored.js";
 import { renderTba } from "./views/tba.js";
 import { renderUpcoming } from "./views/upcoming.js";
 import { renderWatched } from "./views/watched.js";
@@ -91,7 +93,7 @@ function loadRelated() {
 
 function updateBadge() {
   const data = ctx.relatedData;
-  const fresh = data && store.seenReady() ? data.items.filter((i) => !store.isSeen(i.id)).length : 0;
+  const fresh = data && store.seenReady() ? data.items.filter((i) => !store.isSeen(i.id) && !store.isIgnored(i.id)).length : 0;
   badge.hidden = fresh === 0;
   badge.textContent = fresh > 99 ? "99+" : String(fresh);
   badge.setAttribute("aria-label", `Новых анонсов: ${fresh}`);
@@ -110,9 +112,14 @@ const refreshRelatedSoon = debounce(() => {
     });
 }, 700);
 
+let subscribedKey = listKey();
 store.subscribe(() => {
   syncWatchButtons();
   updateBadge();
+  // Анонсы зависят только от списка просмотренного: скрытие и возврат тайтла не должны перерисовывать страницу второй раз.
+  const key = listKey();
+  if (key === subscribedKey) return;
+  subscribedKey = key;
   refreshRelatedSoon();
 });
 
@@ -143,6 +150,7 @@ function parseRoute(hash) {
   if (path === "/tba") return { name: "tba" };
   if (path === "/watched") return { name: "watched" };
   if (path === "/upcoming") return { name: "upcoming" };
+  if (path === "/ignored") return { name: "ignored" };
   return { name: "home" };
 }
 
@@ -183,7 +191,8 @@ function showPage(route) {
   current = null;
   window.scrollTo(0, 0);
   baseHash = location.hash || "#/";
-  markNav(route.name === "season" || route.name === "tba" ? "season" : route.name);
+  const navName = route.name === "season" || route.name === "tba" ? "season" : route.name === "ignored" ? "upcoming" : route.name;
+  markNav(navName);
 
   if (route.name === "home") {
     const { year, season } = ctx.meta.current;
@@ -198,6 +207,7 @@ function showPage(route) {
   else if (route.name === "tba") current = renderTba(view, ctx, isCurrent);
   else if (route.name === "watched") current = renderWatched(view, ctx, isCurrent);
   else if (route.name === "upcoming") current = renderUpcoming(view, ctx, isCurrent);
+  else if (route.name === "ignored") current = renderIgnored(view, ctx, isCurrent);
   else if (route.name === "search") {
     search.setValue(route.q);
     current = renderSearch(view, route, ctx, isCurrent);
@@ -217,6 +227,30 @@ async function renameTitle(d) {
   location.replace(`#/title/${picked.id}`);
 }
 
+// «Игнорировать» в карточке из «Моих анонсов»: тайтл уходит в «Скрытые тайтлы», карточка закрывается.
+function ignoreTitle(d) {
+  if (!store.ignore(d.id)) return toast("В списке скрытых может быть не больше 500 тайтлов.", "error");
+  toast(`«${d.title}» скрыт из анонсов.`, "info", "Вернуть его можно на странице «Скрытые тайтлы».");
+  closeToBase();
+}
+
+// «Вернуть в анонсы» в карточке из «Скрытых тайтлов».
+function restoreTitle(d) {
+  if (!store.restore(d.id)) return;
+  toast(`«${d.title}» снова в «Моих анонсах»`, "accent");
+  closeToBase();
+}
+
+// Закрывает карточку и перерисовывает страницу под ней: список мог измениться.
+function closeToBase() {
+  const target = baseHash && !baseHash.startsWith("#/title/") ? baseHash : "#/";
+  history.replaceState(null, "", target);
+  document.title = pageTitle;
+  closeDialogAnimated(document.getElementById("title-dialog")); // карточка закрывается плавно, как по крестику
+  current?.refresh?.();
+  replayEnter(view); // оставшиеся карточки выезжают заново, список заметно меняется
+}
+
 function onRoute() {
   if (!ctx.meta) return;
   const route = parseRoute(location.hash);
@@ -228,6 +262,8 @@ function onRoute() {
       showPage({ name: "season", year, slug: season.toLowerCase() });
     }
     const fromWatched = baseHash === "#/watched";
+    const fromUpcoming = baseHash === "#/upcoming";
+    const fromIgnored = baseHash === "#/ignored";
     openTitleDialog(
       route.id,
       () => {
@@ -236,7 +272,7 @@ function onRoute() {
         history.replaceState(null, "", target);
         document.title = pageTitle;
       },
-      fromWatched ? { onRename: renameTitle } : {},
+      fromWatched ? { onRename: renameTitle } : fromUpcoming ? { onIgnore: ignoreTitle } : fromIgnored ? { onRestore: restoreTitle } : {},
     );
     return;
   }

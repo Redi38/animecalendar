@@ -7,6 +7,7 @@ const KEY = "anime_calendar_v1";
 export const MAX_WATCHED = 500; // столько ID принимает API за один запрос
 
 let watched = new Set();
+let ignored = new Set(); // тайтлы, скрытые из «Моих анонсов» (их можно вернуть на странице «Скрытые тайтлы»)
 let seen = null; // null — «Новое» ещё не инициализировано (первый визит)
 let imported = {}; // id -> название из файла, по которому тайтл нашли при импорте (чтобы исправить ошибочное совпадение)
 const listeners = new Set();
@@ -18,6 +19,7 @@ function load() {
   watched = new Set(ids(data.watched) || []);
   const s = ids(data.seen);
   seen = s ? new Set(s) : null;
+  ignored = new Set(ids(data.ignored) || []);
   imported = {};
   if (data.imported && typeof data.imported === "object") {
     for (const [id, title] of Object.entries(data.imported)) {
@@ -28,7 +30,7 @@ function load() {
 
 function save() {
   // хранилище недоступно — данные останутся до закрытия вкладки
-  writeJson(KEY, { watched: [...watched], seen: seen ? [...seen] : null, imported });
+  writeJson(KEY, { watched: [...watched], seen: seen ? [...seen] : null, imported, ignored: [...ignored] });
 }
 
 function emit() {
@@ -118,6 +120,30 @@ export const store = {
     imported = {};
     save();
     emit();
+  },
+
+  // «Скрытые тайтлы»: то, что не планируешь смотреть, пропадает из «Моих анонсов», но остаётся в этом списке
+  isIgnored: (id) => ignored.has(id),
+  ignoredSize: () => ignored.size,
+  ignoredIds: () => [...ignored],
+
+  /** true — тайтл скрыт (или уже был скрыт), false — упёрлись в лимит. */
+  ignore(id) {
+    if (!Number.isInteger(id) || id <= 0) return false;
+    if (ignored.has(id)) return true;
+    if (ignored.size >= MAX_WATCHED) return false;
+    ignored.add(id);
+    save();
+    emit();
+    return true;
+  },
+
+  /** Возвращает тайтл в «Мои анонсы». true — был скрыт и возвращён. */
+  restore(id) {
+    if (!ignored.delete(id)) return false;
+    save();
+    emit();
+    return true;
   },
 
   // «Новое» во вкладке анонсов
