@@ -16,7 +16,7 @@ let uid = 0;
  * options: [{ id, label }]; onChange(id) вызывается только при смене значения. Клавиатура: стрелки, Home/End,
  * Enter/пробел выбирают, Esc закрывает.
  */
-export function dropdown({ label, options, value, onChange }) {
+export function dropdown({ label, options, value, onChange, triggerText = null }) {
   const id = `dd-${++uid}`;
   let current = Math.max(
     0,
@@ -25,7 +25,10 @@ export function dropdown({ label, options, value, onChange }) {
   let isOpen = false;
 
   // Все подписи лежат в одной ячейке сетки: ширина кнопки равна самой длинной, и она не «прыгает» при смене пункта.
-  const valueEls = options.map((o, i) => h("span", { class: i === current ? "is-current" : "" }, o.label));
+  // triggerText — постоянная подпись на кнопке (например, «Сортировка»); выбранный пункт виден в самом меню.
+  const valueEls = triggerText
+    ? [h("span", { class: "is-current" }, triggerText)]
+    : options.map((o, i) => h("span", { class: i === current ? "is-current" : "" }, o.label));
   const trigger = h(
     "button",
     {
@@ -78,7 +81,7 @@ export function dropdown({ label, options, value, onChange }) {
     const changed = index !== current;
     current = index;
     items.forEach((el, i) => el.setAttribute("aria-selected", String(i === index)));
-    valueEls.forEach((el, i) => el.classList.toggle("is-current", i === index));
+    if (!triggerText) valueEls.forEach((el, i) => el.classList.toggle("is-current", i === index));
     trigger.setAttribute("aria-label", `${label}: ${options[index].label}`);
     setOpen(false);
     trigger.focus({ preventScroll: true });

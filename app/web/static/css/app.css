@@ -190,7 +190,6 @@ h1, h2, h3, p { margin: 0; }
 
 .toolbar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-bottom: 14px; }
 .toolbar-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
-.sort-label { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-weight: 600; }
 .inline-filter { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); min-width: 240px; flex: 1 1 240px; max-width: 360px; }
 .chip-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .filter-chip { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: transparent; cursor: pointer; font-weight: 600; font-size: 14px; }
@@ -341,6 +340,11 @@ dialog { overscroll-behavior: contain; }
 .dialog-menu-list[hidden] { display: none; }
 .dialog-menu-item { padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; font-weight: 700; text-align: left; white-space: nowrap; cursor: pointer; }
 .dialog-menu-item:hover, .dialog-menu-item:focus-visible { background: var(--card-2); }
+.dialog-menu-item.is-danger { color: var(--danger); }
+.list-menu { position: relative; }
+.list-menu .btn[aria-expanded="true"] .dropdown-chevron { transform: translateY(2px) rotate(225deg); border-color: var(--primary); }
+.list-menu-list { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; width: max-content; padding: 6px; display: flex; flex-direction: column; background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+.list-menu-list[hidden] { display: none; }
 .replace-dialog { width: min(520px, calc(100vw - 24px)); }
 .pick-body { padding: 24px; display: flex; flex-direction: column; gap: 12px; }
 .pick-body h2 { font-size: 20px; font-weight: 800; line-height: 1.25; }

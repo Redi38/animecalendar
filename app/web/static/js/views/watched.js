@@ -79,6 +79,59 @@ function download(name, text) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+/**
+ * Одна кнопка «Список» вместо трёх: меню собирается при открытии, поэтому пункты зависят от того,
+ * пуст ли список сейчас. items() -> [{ label, run, danger? }].
+ */
+function listMenu(items) {
+  const setOpen = (open) => {
+    if (open) {
+      menu.replaceChildren(
+        ...items().map((a) =>
+          h(
+            "button",
+            {
+              type: "button",
+              class: `dialog-menu-item${a.danger ? " is-danger" : ""}`,
+              role: "menuitem",
+              onclick: () => {
+                setOpen(false);
+                a.run();
+              },
+            },
+            a.label,
+          ),
+        ),
+      );
+      document.addEventListener("pointerdown", onOutside, true);
+    } else {
+      document.removeEventListener("pointerdown", onOutside, true);
+    }
+    menu.hidden = !open;
+    btn.setAttribute("aria-expanded", String(open));
+    if (open) menu.firstElementChild?.focus();
+  };
+  const onOutside = (event) => {
+    if (!root.contains(event.target)) setOpen(false);
+  };
+  const menu = h("div", { class: "list-menu-list", role: "menu", hidden: true });
+  const btn = h(
+    "button",
+    { type: "button", class: "btn", "aria-haspopup": "menu", "aria-expanded": "false", onclick: () => setOpen(menu.hidden) },
+    "Управление списком",
+    h("span", { class: "dropdown-chevron", "aria-hidden": "true" }),
+  );
+  const root = h("div", { class: "list-menu" }, btn, menu);
+  root.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !menu.hidden) {
+      event.preventDefault();
+      setOpen(false);
+      btn.focus();
+    }
+  });
+  return root;
+}
+
 export function renderWatched(root, ctx, isCurrent) {
   const { store } = ctx;
   const list = h("div", null);
@@ -167,58 +220,48 @@ export function renderWatched(root, ctx, isCurrent) {
   const actions = h(
     "div",
     { class: "toolbar-actions" },
-    h(
-      "button",
-      {
-        type: "button",
-        class: "btn",
-        onclick: () => {
-          if (!store.size()) return toast("Список пока пуст");
-          download("anime-watched.json", JSON.stringify({ watched: store.ids() }));
-        },
+    dropdown({
+      label: "Сортировка",
+      triggerText: "Сортировка",
+      options: SORTS,
+      value: sort,
+      onChange: (id) => {
+        sort = id;
+        saveSort(sort);
+        if (lastLoad) {
+          renderList();
+          replayEnter(list);
+        }
       },
-      "Скачать список",
-    ),
-    h("button", { type: "button", class: "btn", onclick: () => fileInput.click() }, "Загрузить список"),
-    h(
-      "button",
-      {
-        type: "button",
-        class: "btn btn-danger",
-        onclick: async () => {
-          const n = store.size();
-          if (!n) return;
-          const ok = await confirmDialog({
-            title: "Очистить список просмотренного?",
-            text: `Будет удалено ${formatTitles(n)}. Отменить это нельзя, поэтому сначала можно скачать список файлом.`,
-            confirmLabel: "Очистить список",
-            danger: true,
-          });
-          if (!ok) return;
-          store.clear();
-          toast("Список очищен");
-        },
-      },
-      "Очистить",
-    ),
-    h(
-      "div",
-      { class: "sort-label" },
-      h("span", null, "Сортировка:"),
-      dropdown({
-        label: "Сортировка",
-        options: SORTS,
-        value: sort,
-        onChange: (id) => {
-          sort = id;
-          saveSort(sort);
-          if (lastLoad) {
-            renderList();
-            replayEnter(list);
-          }
-        },
-      }),
-    ),
+    }),
+    listMenu(() => {
+      const items = [{ label: "Загрузить список", run: () => fileInput.click() }];
+      // Пока список пуст, скачивать и очищать нечего: остаётся только загрузка.
+      if (store.size()) {
+        items.unshift({
+          label: "Скачать список",
+          run: () => download("anime-watched.json", JSON.stringify({ watched: store.ids() })),
+        });
+        items.push({
+          label: "Очистить",
+          danger: true,
+          run: async () => {
+            const n = store.size();
+            if (!n) return;
+            const ok = await confirmDialog({
+              title: "Очистить список просмотренного?",
+              text: `Будет удалено ${formatTitles(n)}. Отменить это нельзя, поэтому сначала можно скачать список файлом.`,
+              confirmLabel: "Очистить список",
+              danger: true,
+            });
+            if (!ok) return;
+            store.clear();
+            toast("Список очищен");
+          },
+        });
+      }
+      return items;
+    }),
     fileInput,
   );
 
