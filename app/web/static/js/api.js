@@ -39,4 +39,5 @@ export const api = {
     request(`/api/search?q=${encodeURIComponent(q)}${deep ? "&deep=true" : ""}`, { signal }),
   titles: (ids, signal) => post("/api/titles", { ids }, signal),
   related: (ids, signal) => post("/api/related", { ids }, signal),
+  groups: (ids, signal) => post("/api/groups", { ids }, signal),
 };

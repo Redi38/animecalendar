@@ -1,6 +1,7 @@
 import { api } from "../api.js";
 import { clear, debounce, h, formatStart } from "../util.js";
 import { coverEl, watchButton } from "./card.js";
+import { groupSection } from "./group.js";
 
 /** Поле поиска в шапке: подсказки при наборе, Enter — страница с полными результатами. */
 export function initSearch() {
@@ -55,6 +56,10 @@ export function initSearch() {
       if (!data.items.length) {
         panel.append(h("div", { class: "sug-note" }, "Среди загруженных тайтлов ничего нет."));
       } else {
+        // Сначала франшиза (свёрнутая группа: сезоны, фильмы, OVA), потом сами найденные тайтлы.
+        const groups = (data.groups || []).slice(0, 2);
+        for (const g of groups) panel.append(groupSection({ group: g, items: g.members, renderItem: row, compact: true }));
+        if (groups.length) panel.append(h("div", { class: "sug-heading" }, "Тайтлы"));
         panel.append(...data.items.slice(0, 8).map(row));
       }
       panel.append(
@@ -82,12 +87,13 @@ export function initSearch() {
     } else if (event.key === "Escape") {
       close();
     } else if (event.key === "ArrowDown") {
-      panel.querySelector("a")?.focus();
+      panel.querySelector("a, button")?.focus();
       event.preventDefault();
     }
   });
   panel.addEventListener("keydown", (event) => {
-    const focusables = [...panel.querySelectorAll("a, button")];
+    // Внутри свёрнутой группы фокусироваться не на чем: такие элементы пропускаем.
+    const focusables = [...panel.querySelectorAll("a, button")].filter((el) => !el.closest("[hidden]"));
     const i = focusables.indexOf(document.activeElement);
     if (event.key === "ArrowDown") {
       focusables[Math.min(i + 1, focusables.length - 1)]?.focus();

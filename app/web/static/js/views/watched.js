@@ -1,5 +1,7 @@
 import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
+import { groupSection } from "../ui/group.js";
+import { arrangeByFranchise } from "../groups.js";
 import { toast } from "../ui/toast.js";
 import { confirmDialog } from "../ui/confirm.js";
 import { errorBox } from "../ui/error.js";
@@ -59,6 +61,7 @@ const SORT_KEY = "anime_calendar_watched_sort_v1";
 const SORTS = [
   { id: "alpha", label: "По алфавиту" },
   { id: "added", label: "По порядку добавления" },
+  { id: "franchise", label: "По тайтлам" },
 ];
 
 function loadSort() {
@@ -141,6 +144,8 @@ export function renderWatched(root, ctx, isCurrent) {
   let importing = false;
   let sort = loadSort();
   let lastLoad = null; // { data, ids } — чтобы менять сортировку без повторного запроса
+  let groupsCache = null; // { key, groups } — франшизы для текущего списка, запрашиваются при первой сортировке «По тайтлам»
+  const openGroups = new Set(); // раскрытые группы переживают перерисовку списка
 
   function showReport(summary, failed) {
     const parts = [h("p", null, summary)];
@@ -228,10 +233,7 @@ export function renderWatched(root, ctx, isCurrent) {
       onChange: (id) => {
         sort = id;
         saveSort(sort);
-        if (lastLoad) {
-          renderList();
-          replayEnter(list);
-        }
+        if (lastLoad) show().then((shown) => shown && replayEnter(list));
       },
     }),
     listMenu(() => {
@@ -280,9 +282,46 @@ export function renderWatched(root, ctx, isCurrent) {
 
   let shownIds = null;
 
+  /** Группа-франшиза в списке: раскрывается по клику, внутри — просмотренные тайтлы этой франшизы. */
+  function franchiseGroup(entry) {
+    return groupSection({
+      group: entry,
+      items: entry.items,
+      renderItem: watchedCard,
+      open: openGroups.has(entry.id),
+      onToggle: (open) => (open ? openGroups.add(entry.id) : openGroups.delete(entry.id)),
+    });
+  }
+
+  /**
+   * Рисует список в выбранной сортировке. Для «По тайтлам» сначала запрашиваем группы у сервера.
+   * Возвращает true, если список нарисован (а не отменён сменой сортировки или страницы).
+   */
+  async function show() {
+    const load = lastLoad;
+    if (sort === "franchise") {
+      const key = load.ids.join(",");
+      if (groupsCache?.key !== key) {
+        clear(list).append(h("div", { class: "loading", role: "status" }, "Собираем франшизы…"));
+        try {
+          const res = await api.groups(load.ids, controller.signal);
+          groupsCache = { key, groups: res.groups };
+        } catch (err) {
+          if (err.name === "AbortError" || !isCurrent()) return false;
+          // Группы не собрались: показываем список по алфавиту, а при следующем выборе сортировки попробуем снова.
+          toast("Не удалось собрать франшизы. Показан список по алфавиту.", "error");
+        }
+        if (!isCurrent() || lastLoad !== load || sort !== "franchise") return false;
+      }
+    }
+    renderList();
+    return true;
+  }
+
   function renderList() {
     const { data, ids } = lastLoad;
     const order = new Map(ids.map((id, i) => [id, i])); // Set хранит порядок добавления
+    const franchise = sort === "franchise" && groupsCache?.key === ids.join(",");
     const items = [...data.items].sort(
       sort === "added"
         ? (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)
@@ -300,7 +339,18 @@ export function renderWatched(root, ctx, isCurrent) {
         ),
       );
     }
-    parts.push(h("div", { class: "grid" }, items.map(watchedCard)));
+    if (franchise) {
+      const entries = arrangeByFranchise(data.items, groupsCache.groups);
+      parts.push(
+        h(
+          "div",
+          { class: "grid" },
+          entries.map((e) => (e.kind === "group" ? franchiseGroup(e) : watchedCard(e.item))),
+        ),
+      );
+    } else {
+      parts.push(h("div", { class: "grid" }, items.map(watchedCard)));
+    }
     clear(list).append(...parts);
   }
 
@@ -325,7 +375,7 @@ export function renderWatched(root, ctx, isCurrent) {
       if (!isCurrent()) return;
       shownIds = new Set(ids);
       lastLoad = { data, ids };
-      renderList();
+      await show();
     } catch (err) {
       if (err.name === "AbortError" || !isCurrent()) return;
       clear(list).append(errorBox(err.message, { onRetry: paint }));

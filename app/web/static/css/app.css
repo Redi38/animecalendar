@@ -197,6 +197,34 @@ h1, h2, h3, p { margin: 0; }
 .filter-chip[aria-pressed="true"] { background: rgba(var(--primary-rgb), 0.18); border-color: var(--primary); color: var(--primary); }
 .result-count { color: var(--muted); margin-bottom: 8px; font-size: 14px; }
 
+/* группа-франшиза: свёрнутая шапка, внутри сезоны, фильмы и OVA */
+.group { grid-column: 1 / -1; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.group + .group, .day-title + .group { margin-top: 10px; }
+.group-head { display: flex; align-items: center; gap: 14px; width: 100%; padding: 10px 16px 10px 10px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.group-head:hover, .group-head:focus-visible { background: var(--card-2); }
+.group-text { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 2px; }
+.group-title { font-weight: 800; font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.group-meta { font-size: 13px; color: var(--muted); }
+.group-chevron { margin-left: auto; }
+.group.is-open > .group-head .group-chevron { transform: translateY(2px) rotate(225deg); border-color: var(--primary); }
+.group.is-open > .group-head { border-bottom: 1px solid var(--border); }
+.group-body { padding: 14px; }
+.group-body[hidden] { display: none; }
+.group.is-opening .group-body { animation: fade-up 0.3s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.group.is-opening .group-body .tcard { animation: card-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+.group.is-opening .group-body .tcard:nth-child(2) { animation-delay: 35ms; }
+.group.is-opening .group-body .tcard:nth-child(3) { animation-delay: 70ms; }
+.group.is-opening .group-body .tcard:nth-child(n + 4) { animation-delay: 105ms; }
+
+/* то же в выпадающих подсказках поиска */
+.group-compact { grid-column: auto; margin-bottom: 4px; background: var(--card-2); border-color: transparent; }
+.group-compact .group-head { gap: 10px; padding: 6px 12px 6px 6px; }
+.group-compact .group-title { font-size: 15px; }
+.group-compact .group-body { padding: 4px; }
+.group-compact .sug:hover, .group-compact .sug:focus-within { background: var(--card); }
+.group-compact.is-open > .group-head { border-bottom: 1px solid var(--border); }
+.sug-heading { padding: 8px 10px 4px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+
 .day-group { margin-bottom: 26px; }
 .day-title { font-size: 17px; font-weight: 800; margin: 18px 0 10px; display: flex; align-items: center; gap: 10px; scroll-margin-top: calc(var(--topbar-h) + 10px); }
 .day-group.is-past .day-title { color: var(--muted); }
@@ -407,7 +435,7 @@ html[data-enter] .container > :nth-child(4) { animation-delay: 150ms; }
 html[data-enter] .container > :nth-child(5) { animation-delay: 200ms; }
 html[data-enter] .container > :nth-child(6) { animation-delay: 250ms; }
 html[data-enter] .container > :nth-child(n + 7) { animation-delay: 300ms; }
-:is(html[data-enter] .grid, .is-entering .grid) > .tcard { animation: card-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+:is(html[data-enter] .grid, .is-entering .grid) > :is(.tcard, .group) { animation: card-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
 :is(html[data-enter] .grid, .is-entering .grid) > :nth-child(2) { animation-delay: 35ms; }
 :is(html[data-enter] .grid, .is-entering .grid) > :nth-child(3) { animation-delay: 70ms; }
 :is(html[data-enter] .grid, .is-entering .grid) > :nth-child(4) { animation-delay: 105ms; }

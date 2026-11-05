@@ -196,6 +196,20 @@ class Database:
             out.setdefault(r["source_id"], []).append((r["target_id"], r["relation_type"]))
         return out
 
+    async def group_edges(self, ids: Sequence[int], types: Iterable[str]) -> list[tuple[int, int]]:
+        """Связи заданных типов, у которых один из концов в ids (в любую сторону): [(source_id, target_id)]."""
+        kinds = sorted(types)
+        out: set[tuple[int, int]] = set()
+        for column in ("source_id", "target_id"):
+            rows = await self._select_in(
+                f"SELECT source_id, target_id FROM relations WHERE {column} IN ({{marks}}) "
+                f"AND relation_type IN ({_marks(len(kinds))})",
+                ids,
+                after=kinds,
+            )
+            out.update((r["source_id"], r["target_id"]) for r in rows)
+        return sorted(out)
+
     async def season_synced_at(self, key: str) -> int | None:
         async with self.conn.execute("SELECT synced_at FROM season_sync WHERE key = ?", (key,)) as cur:
             row = await cur.fetchone()

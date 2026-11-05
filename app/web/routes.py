@@ -98,13 +98,21 @@ async def search(
     q: Annotated[str, Query(max_length=100)] = "",
     deep: bool = False,
 ) -> dict:
-    return {"query": q.strip(), "items": await catalog.search(q, deep=deep)}
+    items = await catalog.search(q, deep=deep)
+    # Франшизы найденного: по ним в интерфейсе сначала показывается группа, а потом отдельные тайтлы.
+    groups = await catalog.search_groups([i["id"] for i in items[:10]], deep=deep) if items else []
+    return {"query": q.strip(), "items": items, "groups": groups}
 
 
 @router.post("/titles", dependencies=[Depends(limiter(30))])
 async def titles(body: IdsBody, catalog: CatalogDep) -> dict:
     items, missing = await catalog.titles_by_ids(body.ids)
     return {"items": items, "missing": missing}
+
+
+@router.post("/groups", dependencies=[Depends(limiter(30))])
+async def groups(body: IdsBody, catalog: CatalogDep) -> dict:
+    return {"groups": await catalog.groups(body.ids)}
 
 
 @router.post("/related", dependencies=[Depends(limiter(20))])

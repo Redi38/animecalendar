@@ -1,5 +1,6 @@
 import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
+import { groupSection } from "../ui/group.js";
 import { errorBox } from "../ui/error.js";
 import { clear, formatTitles, h } from "../util.js";
 
@@ -26,10 +27,19 @@ export function renderSearch(root, { q }, ctx, isCurrent) {
         );
         return;
       }
-      clear(body).append(
-        h("p", { class: "result-count" }, `Найдено: ${formatTitles(data.items.length)}`),
-        h("div", { class: "grid" }, data.items.map((item) => titleCard(item, { showDate: true, related: ctx.relatedIds.has(item.id) }))),
-      );
+      const card = (item) => titleCard(item, { showDate: true, related: ctx.relatedIds.has(item.id) });
+      const groups = data.groups || [];
+      const parts = [h("p", { class: "result-count" }, `Найдено: ${formatTitles(data.items.length)}`)];
+      // Сначала франшизы целиком (первая раскрыта), потом отдельные тайтлы, которые нашёл поиск.
+      if (groups.length) {
+        parts.push(
+          h("h2", { class: "day-title" }, "Франшизы"),
+          ...groups.map((g, i) => groupSection({ group: g, items: g.members, renderItem: card, open: i === 0 })),
+          h("h2", { class: "day-title" }, "Найденные тайтлы"),
+        );
+      }
+      parts.push(h("div", { class: "grid" }, data.items.map(card)));
+      clear(body).append(...parts);
     })
     .catch((err) => {
       if (err.name === "AbortError" || !isCurrent()) return;
