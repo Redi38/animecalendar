@@ -139,7 +139,7 @@ function body(d) {
           ),
         )
       : null,
-  ];
+  ].filter(Boolean); // append() не пропускает null и вписал бы в карточку текст «null»
 }
 
 /**

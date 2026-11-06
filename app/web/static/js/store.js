@@ -33,8 +33,9 @@ function save() {
   writeJson(KEY, { watched: [...watched], seen: seen ? [...seen] : null, imported, ignored: [...ignored] });
 }
 
-function emit() {
-  for (const fn of listeners) fn();
+/** source — откуда изменение: «sync» значит, что список обновила синхронизация, а не пользователь на этой странице. */
+function emit(source) {
+  for (const fn of listeners) fn(source);
 }
 
 load();
@@ -144,6 +145,22 @@ export const store = {
     save();
     emit();
     return true;
+  },
+
+  /** Копия всего, что синхронизируется между устройствами. */
+  snapshot: () => ({ watched: [...watched], ignored: [...ignored], seen: seen ? [...seen] : null, imported: { ...imported } }),
+
+  /** Применяет результат слияния с облаком (списки уже проверены в syncmerge.js). Подписчики получают источник «sync». */
+  applyMerged(state) {
+    watched = new Set(state.watched);
+    ignored = new Set(state.ignored);
+    seen = state.seen ? new Set(state.seen) : null;
+    imported = {};
+    for (const [id, title] of Object.entries(state.imported || {})) {
+      if (watched.has(Number(id))) imported[id] = title;
+    }
+    save();
+    emit("sync");
   },
 
   // «Новое» во вкладке анонсов

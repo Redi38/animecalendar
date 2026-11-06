@@ -295,14 +295,18 @@ export function renderWatched(root, ctx, isCurrent) {
 
   /**
    * Рисует список в выбранной сортировке. Для «По тайтлам» сначала запрашиваем группы у сервера.
+   * keep — перерисовка уже показанного списка (добавили тайтл): старый список остаётся на экране, пока грузятся
+   * группы, иначе страница схлопывается до заглушки и прокрутка улетает вверх.
    * Возвращает true, если список нарисован (а не отменён сменой сортировки или страницы).
    */
-  async function show() {
+  async function show(keep = false) {
     const load = lastLoad;
     if (sort === "franchise") {
       const key = load.ids.join(",");
       if (groupsCache?.key !== key) {
-        clear(list).append(h("div", { class: "loading", role: "status" }, "Собираем франшизы…"));
+        if (!keep || !list.querySelector(".grid")) {
+          clear(list).append(h("div", { class: "loading", role: "status" }, "Собираем франшизы…"));
+        }
         try {
           const res = await api.groups(load.ids, controller.signal);
           groupsCache = { key, groups: res.groups };
@@ -369,15 +373,19 @@ export function renderWatched(root, ctx, isCurrent) {
       );
       return;
     }
-    clear(list).append(h("div", { class: "loading", role: "status" }, "Загружаем ваш список…"));
+    // Добавили тайтл, пока список уже на экране: оставляем его до прихода новых данных. Заглушка вместо списка
+    // схлопывает страницу, и браузер сбрасывает прокрутку вверх.
+    const keep = lastLoad !== null;
+    if (!keep) clear(list).append(h("div", { class: "loading", role: "status" }, "Загружаем ваш список…"));
     try {
       const data = await api.titles(ids, controller.signal);
       if (!isCurrent()) return;
       shownIds = new Set(ids);
       lastLoad = { data, ids };
-      await show();
+      await show(keep);
     } catch (err) {
       if (err.name === "AbortError" || !isCurrent()) return;
+      lastLoad = null;
       clear(list).append(errorBox(err.message, { onRetry: paint }));
     }
   }
@@ -386,10 +394,11 @@ export function renderWatched(root, ctx, isCurrent) {
 
   // Убрали тайтл прямо на этой странице — карточка остаётся (с кнопкой «вернуть»), пока не обновим страницу.
   // Добавили или загрузили файл — перерисовываем.
-  const unsubscribe = store.subscribe(() => {
+  const unsubscribe = store.subscribe((source) => {
     const ids = new Set(store.ids());
     const added = [...ids].some((id) => !shownIds || !shownIds.has(id));
-    if (added || ids.size === 0) paint();
+    // Синхронизация могла и убрать тайтлы: после неё список пересобираем целиком.
+    if (added || ids.size === 0 || source === "sync") paint();
   });
 
   return {

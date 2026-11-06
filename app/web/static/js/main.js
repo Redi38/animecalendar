@@ -7,6 +7,7 @@ import { closeDialogAnimated, replayEnter } from "./ui/motion.js";
 import { replaceDialog } from "./ui/replace.js";
 import { initSearch } from "./ui/search.js";
 import { toast } from "./ui/toast.js";
+import { initSync } from "./ui/sync.js";
 import { initThemeToggle } from "./theme.js";
 import { debounce, h } from "./util.js";
 import { renderSearch } from "./views/search.js";
@@ -113,9 +114,11 @@ const refreshRelatedSoon = debounce(() => {
 }, 700);
 
 let subscribedKey = listKey();
-store.subscribe(() => {
+store.subscribe((source) => {
   syncWatchButtons();
   updateBadge();
+  // Список обновила синхронизация с другого устройства: открытая страница перерисовывается сразу.
+  if (source === "sync") current?.refresh?.();
   // Анонсы зависят только от списка просмотренного: скрытие и возврат тайтла не должны перерисовывать страницу второй раз.
   const key = listKey();
   if (key === subscribedKey) return;
@@ -302,6 +305,7 @@ async function start() {
     );
   }
   updateBadge();
+  initSync(ctx.meta.google_client_id);
   window.addEventListener("hashchange", onRoute);
   onRoute();
   // Прогреваем анонсы для значка на вкладке, не мешая основному экрану.

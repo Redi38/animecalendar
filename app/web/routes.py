@@ -43,6 +43,7 @@ async def meta(request: Request, catalog: CatalogDep, yummy: YummyDep) -> dict:
         "demo": bool(request.app.state.demo),
         "watch_url": request.app.state.watch_url,
         "watch_exact": yummy.enabled,
+        "google_client_id": request.app.state.google_client_id,
     }
 
 

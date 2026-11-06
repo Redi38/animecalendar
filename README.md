@@ -27,6 +27,7 @@ A Russian-language anime release calendar in the spirit of livechart.me: seasona
 - **Watch online.** The title card has a button that opens the title's page on an external site (old.yummyani.me by default). The exact page is found through the site's API by MAL ID, or by title and year; until it is found, the button opens a search instead. See the Configuration section below.
 - **Watched list.** An eye button on every card. The list is stored in the browser, and it can be downloaded as a file and uploaded on another device. You can also upload a JSON file with a list of titles (`[{"title": "..."}]` or an array of strings): the site looks each one up through its search and adds it, which takes about a second per title, and then shows which titles could not be added and why. Import takes the first search result, so if a title was matched wrongly, open the title card from the watched list, choose "Переименовать" (rename) in its "⋯" menu next to the close button and pick the right title from the search; it takes the wrong title's place in the list. Titles imported from a file also show the name they were imported as. The list can be sorted alphabetically, in the order titles were added, or "По тайтлам" (by title): seasons, movies, OVAs and specials of one title are gathered into a collapsible group, and titles without a sibling in your list stay as ordinary cards. The list can be cleared after a confirmation.
 - **My announcements ("Мои анонсы").** Starting from your watched list, the site walks the relation graph (sequels, prequels, spin-offs, side stories, alternative versions) and shows what has not been released yet or is airing now, labelled like "Sequel · from '…'". The walk goes up to eight steps deep, so an announcement of season five, or a movie linked to the franchise through several seasons and specials, is found even if you never marked the titles in between. Titles released within the last 45 days also appear (group "Недавно вышло", recently released), and the "★" mark in the schedule is set for every related title, including ones that are already out. Large lists are walked in batches: the page keeps loading relations and extends the list by itself. New announcements are highlighted with a "Новое" (new) badge and a counter on the tab. Titles you do not plan to watch can be hidden: open the title card from the tab, press "⋯" next to the close button and choose "Игнорировать". Hidden titles move to the "Скрытые тайтлы" (ignored titles) page, reachable from a button on the tab, where a title can be brought back from its card menu ("Вернуть в анонсы").
+- **Sync via Google Drive (optional).** When `GOOGLE_CLIENT_ID` is set, a cloud button appears in the header. After signing in with Google, the watched list, "Мои анонсы" hidden titles and the "seen" marks are kept in a hidden app-data file in your own Google Drive (`drive.appdata` scope: the site sees only its own file, not your other files) and merged between devices automatically after changes, on page open and when you return to the tab. See "Sync via Google Drive" below.
 - **Title card.** Russian description, studio, genres, next episode date, related titles (you can move between them inside the window), and links to Shikimori, AniList and MyAnimeList.
 - **Interface.** Dark theme by default, a light theme following the system setting until you pick one with the switch in the header (the choice is remembered in the browser), a layout that fills wide screens, animations (disabled automatically for users who prefer reduced motion), and keyboard-friendly dialogs.
 
@@ -99,6 +100,20 @@ anime.example.com {
 ```
 
 Only enable `TRUST_PROXY_HEADERS` when the app is reachable exclusively through the proxy; otherwise clients can spoof `X-Forwarded-For`.
+
+### Sync via Google Drive
+
+Sync runs entirely in the browser: the server stores nothing and only passes the client ID to the page. To enable it:
+
+1. In [Google Cloud Console](https://console.cloud.google.com/) create a project, enable the **Google Drive API**, and configure the OAuth consent screen (scope `https://www.googleapis.com/auth/drive.appdata`).
+2. Create an **OAuth client ID** of type "Web application" and add your site address to **Authorized JavaScript origins** (for example `https://anime.example.com`; `http://localhost:8000` works for local tests). Google requires HTTPS for any other host.
+3. Put the client ID into `.env` as `GOOGLE_CLIENT_ID=...apps.googleusercontent.com` and restart. Without it the button is hidden and the Content-Security-Policy stays strict (no Google hosts allowed).
+
+Notes:
+
+- Merging is three-way: an item added on any device is kept, an item removed on one device is removed everywhere, and the first sync of a new device is a union. Each list is capped at 500 titles.
+- The access token lives about an hour and is kept in the browser's localStorage; when it expires the button asks you to sign in again. "Отключить" revokes it and stops syncing, local data stays.
+- While the OAuth app is in "Testing" mode, only accounts listed as test users can sign in.
 
 ### Warm-up and first requests
 

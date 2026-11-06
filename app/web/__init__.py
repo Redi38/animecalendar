@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -31,11 +32,28 @@ logger = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).parent / "static"
 
-CSP = (
-    "default-src 'self'; img-src 'self' data: https://s4.anilist.co https://*.anilist.co; "
-    "style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; "
-    "font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
-)
+GOOGLE_CLIENT_ID_RE = re.compile(r"^[0-9A-Za-z._-]+\.apps\.googleusercontent\.com$")
+
+
+def google_client_id(raw: str) -> str:
+    """ID OAuth-клиента Google отдаём фронтенду только в правильном виде; иначе синхронизация выключена."""
+    value = (raw or "").strip()
+    return value if GOOGLE_CLIENT_ID_RE.match(value) else ""
+
+
+def build_csp(google: bool) -> str:
+    """Политика безопасности страниц. Адреса Google открываются, только если настроена синхронизация."""
+    script, connect, style, frame = "'self'", "'self'", "'self' 'unsafe-inline'", ""
+    if google:
+        script += " https://accounts.google.com/gsi/client"
+        connect += " https://www.googleapis.com https://accounts.google.com/gsi/"
+        style += " https://accounts.google.com/gsi/style"
+        frame = " frame-src https://accounts.google.com/gsi/;"
+    return (
+        "default-src 'self'; img-src 'self' data: https://s4.anilist.co https://*.anilist.co; "
+        f"style-src {style}; script-src {script}; connect-src {connect};{frame} "
+        "font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+    )
 
 
 def build_catalog(cfg: Settings) -> Catalog:
@@ -82,6 +100,8 @@ def create_app(cfg: Settings | None = None, catalog: Catalog | None = None) -> F
 
     app = FastAPI(title="Аниме-календарь", lifespan=lifespan)
     app.state.demo = cfg.DEMO_MODE
+    app.state.google_client_id = google_client_id(cfg.GOOGLE_CLIENT_ID)
+    csp = build_csp(bool(app.state.google_client_id))
     app.state.watch_url = watch_template(cfg.WATCH_URL)  # шаблон постоянный: проверяем один раз
     app.state.yummy = YummyClient(
         cfg.WATCH_API,
@@ -122,7 +142,7 @@ def create_app(cfg: Settings | None = None, catalog: Catalog | None = None) -> F
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
         if not request.url.path.startswith("/api"):
-            response.headers.setdefault("Content-Security-Policy", CSP)
+            response.headers.setdefault("Content-Security-Policy", csp)
         path = request.url.path
         if path.startswith("/static/") and "Cache-Control" not in response.headers:
             # Без хэшей в именах файлов: шрифты кэшируем надолго, остальное — с проверкой по ETag.
