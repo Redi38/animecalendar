@@ -305,7 +305,7 @@ async function start() {
     );
   }
   updateBadge();
-  initSync(ctx.meta.google_client_id);
+  initSync(ctx.meta.google_client_id, Boolean(ctx.meta.google_persistent));
   window.addEventListener("hashchange", onRoute);
   onRoute();
   // Прогреваем анонсы для значка на вкладке, не мешая основному экрану.

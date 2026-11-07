@@ -13,8 +13,9 @@ const STALE_MS = 60_000; // вернулись на вкладку: синхро
  * Состояния: off (не подключено), idle (всё синхронно), syncing, needs-login (токен истёк), error.
  * Токен доступа живёт около часа и лежит в localStorage этого браузера, чтобы синхронизация переживала перезагрузку
  * страницы. Он даёт доступ только к скрытой папке этого приложения на Диске. «Отключить» отзывает его.
+ * Если на сервере настроен секрет клиента (server), вход постоянный: новый токен выпускается по куке без кликов.
  */
-export function createSync({ store, drive, gis, readSettings, writeSettings, now = Date.now, changeDelay = CHANGE_DELAY_MS }) {
+export function createSync({ store, drive, gis, server = null, readSettings, writeSettings, now = Date.now, changeDelay = CHANGE_DELAY_MS }) {
   const loaded = readSettings();
   let settings = loaded && typeof loaded === "object" ? loaded : {};
   const listeners = new Set();
@@ -26,7 +27,9 @@ export function createSync({ store, drive, gis, readSettings, writeSettings, now
   let lastResult = { applied: false, uploaded: false, truncated: false };
 
   const tokenValid = () => Boolean(settings.token) && Number(settings.expires) - now() > TOKEN_MARGIN_MS;
-  status = settings.enabled ? (tokenValid() ? "idle" : "needs-login") : "off";
+  // С постоянным входом (кука на сервере) просроченный токен не беда: новый выпускается без участия пользователя.
+  const canRefresh = () => Boolean(server && settings.persistent);
+  status = settings.enabled ? (tokenValid() || canRefresh() ? "idle" : "needs-login") : "off";
 
   const save = () => writeSettings(settings);
   const emit = () => {
@@ -38,11 +41,21 @@ export function createSync({ store, drive, gis, readSettings, writeSettings, now
     emit();
   }
 
-  async function login() {
-    const res = await gis.request();
+  function accept(res) {
     settings.token = res.access_token;
     settings.expires = now() + Number(res.expires_in || 3600) * 1000;
     save();
+  }
+
+  async function login() {
+    if (server) {
+      const res = await server.connect(await gis.requestCode());
+      accept(res);
+      settings.persistent = Boolean(res.persistent);
+      save();
+    } else {
+      accept(await gis.request());
+    }
     drive.account(settings.token).then((who) => {
       if (who && who !== settings.email) {
         settings.email = who;
@@ -70,10 +83,25 @@ export function createSync({ store, drive, gis, readSettings, writeSettings, now
     lastResult = { applied, uploaded, truncated };
   }
 
+  /** Тихо получает новый токен по куке на сервере. false: куки нет или доступ отозван, нужен вход. */
+  async function refresh() {
+    if (!canRefresh()) return false;
+    try {
+      accept(await server.token());
+      return true;
+    } catch (err) {
+      if (!(err instanceof DriveAuthError)) throw err;
+      settings.persistent = false;
+      settings.token = null;
+      save();
+      return false;
+    }
+  }
+
   async function run(interactive) {
     setStatus("syncing");
     try {
-      if (!tokenValid()) {
+      if (!tokenValid() && !(await refresh())) {
         if (!interactive) {
           setStatus("needs-login");
           return false;
@@ -86,11 +114,13 @@ export function createSync({ store, drive, gis, readSettings, writeSettings, now
         if (!(err instanceof DriveAuthError)) throw err;
         settings.token = null;
         save();
-        if (!interactive) {
-          setStatus("needs-login", err.message);
-          return false;
+        if (!(await refresh())) {
+          if (!interactive) {
+            setStatus("needs-login", err.message);
+            return false;
+          }
+          await login();
         }
-        await login();
         await exchange();
       }
       setStatus("idle");
@@ -130,6 +160,8 @@ export function createSync({ store, drive, gis, readSettings, writeSettings, now
       email: settings.email || null,
       last: settings.last || null,
       configured: Boolean(settings.enabled),
+      persistent: Boolean(server && settings.persistent),
+      canPersist: Boolean(server),
       result: lastResult,
     }),
 
@@ -157,11 +189,12 @@ export function createSync({ store, drive, gis, readSettings, writeSettings, now
 
     async disconnect() {
       clearTimeout(timer);
-      const token = settings.token;
+      const { token, persistent } = settings;
       settings = {};
       save();
       setStatus("off");
-      if (token) await gis.revoke(token);
+      if (persistent && server) await server.disconnect();
+      else if (token) await gis.revoke(token);
     },
 
     /** Подписка на правки списка и возвращение на вкладку; первый обмен, если вход ещё действует. */
@@ -171,9 +204,9 @@ export function createSync({ store, drive, gis, readSettings, writeSettings, now
         schedule(changeDelay);
       });
       doc?.addEventListener?.("visibilitychange", () => {
-        if (doc.visibilityState === "visible" && settings.enabled && tokenValid() && now() - (settings.last || 0) > STALE_MS) sync();
+        if (doc.visibilityState === "visible" && settings.enabled && (tokenValid() || canRefresh()) && now() - (settings.last || 0) > STALE_MS) sync();
       });
-      if (settings.enabled && tokenValid()) sync();
+      if (settings.enabled && (tokenValid() || canRefresh())) sync();
     },
   };
   return api;

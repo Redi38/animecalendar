@@ -44,6 +44,7 @@ async def meta(request: Request, catalog: CatalogDep, yummy: YummyDep) -> dict:
         "watch_url": request.app.state.watch_url,
         "watch_exact": yummy.enabled,
         "google_client_id": request.app.state.google_client_id,
+        "google_persistent": bool(request.app.state.google_secret),
     }
 
 

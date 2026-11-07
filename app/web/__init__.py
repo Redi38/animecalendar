@@ -26,6 +26,8 @@ from app.providers.shikimori import ShikimoriClient
 from app.providers.yummy import YummyClient
 from app.services.catalog import Catalog
 
+from .gauth import make_fernet
+from .gauth import router as gauth_router
 from .routes import router, watch_template
 
 logger = logging.getLogger(__name__)
@@ -101,6 +103,11 @@ def create_app(cfg: Settings | None = None, catalog: Catalog | None = None) -> F
     app = FastAPI(title="Аниме-календарь", lifespan=lifespan)
     app.state.demo = cfg.DEMO_MODE
     app.state.google_client_id = google_client_id(cfg.GOOGLE_CLIENT_ID)
+    secret = cfg.GOOGLE_CLIENT_SECRET.strip() if app.state.google_client_id else ""
+    app.state.google_secret = secret
+    app.state.google_fernet = make_fernet(secret) if secret else None
+    app.state.google_transport = None  # в тестах сюда подставляют httpx.MockTransport
+    app.state.trust_proxy = cfg.TRUST_PROXY_HEADERS
     csp = build_csp(bool(app.state.google_client_id))
     app.state.watch_url = watch_template(cfg.WATCH_URL)  # шаблон постоянный: проверяем один раз
     app.state.yummy = YummyClient(
@@ -121,6 +128,7 @@ def create_app(cfg: Settings | None = None, catalog: Catalog | None = None) -> F
         )
 
     app.include_router(router)
+    app.include_router(gauth_router)
 
     @app.get("/healthz", include_in_schema=False)
     async def healthz() -> dict:

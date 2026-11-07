@@ -49,6 +49,29 @@ export function createGis(clientId) {
       });
     },
 
+    /** Окно входа Google для постоянного входа: возвращает одноразовый код, его сервер меняет на refresh-токен. */
+    async requestCode() {
+      await load();
+      return new Promise((resolve, reject) => {
+        const client = globalThis.google.accounts.oauth2.initCodeClient({
+          client_id: clientId,
+          scope: SCOPE,
+          ux_mode: "popup",
+          callback: (res) =>
+            res?.code
+              ? resolve(res.code)
+              : reject(new SyncError(res?.error === "access_denied" ? "cancelled" : "popup", "Вход в Google не удался или был отменён.")),
+          error_callback: (err) =>
+            reject(
+              err?.type === "popup_failed_to_open"
+                ? new SyncError("popup", "Браузер заблокировал окно входа. Разрешите всплывающие окна для сайта и повторите.")
+                : new SyncError("cancelled", "Вход в Google отменён."),
+            ),
+        });
+        client.requestCode();
+      });
+    },
+
     /** Отзывает доступ сайта к Google Диску (файл в облаке остаётся). */
     async revoke(token) {
       try {

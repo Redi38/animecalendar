@@ -1,5 +1,6 @@
 import { createDrive } from "../gdrive.js";
 import { createGis } from "../gis.js";
+import { createServerAuth } from "../gserver.js";
 import { readJson, writeJson } from "../storage.js";
 import { store } from "../store.js";
 import { SYNC_KEY, createSync } from "../sync.js";
@@ -43,7 +44,9 @@ function openDialog(sync) {
       s.status === "off"
         ? "Список просмотренного и скрытые тайтлы будут храниться в вашем Google Диске, в скрытой папке этого сайта. Остальные файлы на Диске сайту недоступны, а сам сайт ваш список не хранит. Войдите на другом устройстве с тем же аккаунтом, и списки объединятся."
         : s.status === "idle"
-          ? "Список сам сверяется с Google Диском при изменениях и когда вы возвращаетесь на вкладку."
+          ? s.persistent
+            ? "Список сам сверяется с Google Диском при изменениях и когда вы возвращаетесь на вкладку. Вход сохранён, повторно входить не нужно."
+            : "Список сам сверяется с Google Диском при изменениях и когда вы возвращаетесь на вкладку."
           : s.message || (s.status === "needs-login" ? "Вход действует около часа. Войдите снова, и изменения с этого устройства сохранятся." : "");
     const facts = connected
       ? h(
@@ -86,6 +89,9 @@ function openDialog(sync) {
       h("h2", { id: "sync-title" }, TITLES[s.status] || TITLES.off),
       // Вход не удался или отменён: причину показываем отдельно над обычным пояснением.
       s.status === "off" && s.message ? h("p", { class: "confirm-text sync-warn", role: "alert" }, s.message) : null,
+      s.status === "idle" && s.canPersist && !s.persistent
+        ? h("p", { class: "confirm-text sync-warn" }, "Google не выдал постоянный доступ, поэтому входить придётся примерно раз в час. Чтобы это исправить: отключите синхронизацию, удалите это приложение на myaccount.google.com/permissions и подключите снова.")
+        : null,
       text ? h("p", { class: "confirm-text", role: s.status === "error" ? "alert" : null }, text) : null,
       facts,
       h("div", { class: "confirm-actions" }, primary),
@@ -119,13 +125,14 @@ function openDialog(sync) {
 }
 
 /** Кнопка с облаком в шапке и сама синхронизация. Если сервер не знает ID клиента Google, кнопки нет. */
-export function initSync(clientId) {
+export function initSync(clientId, persistent = false) {
   const btn = document.getElementById("sync-btn");
   if (!clientId || !btn) return null;
   const sync = createSync({
     store,
     drive: createDrive(),
     gis: createGis(clientId),
+    server: persistent ? createServerAuth() : null,
     readSettings: () => readJson(SYNC_KEY, {}),
     writeSettings: (value) => writeJson(SYNC_KEY, value),
   });
