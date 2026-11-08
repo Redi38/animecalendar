@@ -2,7 +2,8 @@ import httpx
 import pytest
 
 from app.config import Settings
-from app.web import build_csp, create_app, google_client_id
+from app.web import create_app
+from app.web.security import build_csp, google_client_id
 
 CLIENT_ID = "1234567890-abcdefg.apps.googleusercontent.com"
 

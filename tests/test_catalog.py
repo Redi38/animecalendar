@@ -314,4 +314,4 @@ async def test_stale_season_triggers_a_single_background_refresh(catalog: Catalo
     clock.advance(4 * 3600)
     await asyncio.gather(*(catalog.season(2026, "FALL") for _ in range(5)))
     await catalog.drain()
-    assert anilist.count("season_page") == 21~j0han_st: ПРИЦЕЛ КАК В КОЛЛ ОФ ДЬЮТИ
+    assert anilist.count("season_page") == 2
