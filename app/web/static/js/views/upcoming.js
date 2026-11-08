@@ -1,6 +1,6 @@
 import { titleCard } from "../ui/card.js";
 import { errorBox } from "../ui/error.js";
-import { capitalize, clear, formatStart, h, plural } from "../util.js";
+import { capitalize, fill, formatStart, h, plural } from "../util.js";
 
 function groupItems(items) {
   const groups = new Map();
@@ -26,7 +26,7 @@ function groupItems(items) {
 
 export function renderUpcoming(root, ctx, isCurrent) {
   const { store } = ctx;
-  clear(root).append(h("h1", { class: "page-title" }, "Мои анонсы"));
+  fill(root, h("h1", { class: "page-title" }, "Мои анонсы"));
 
   /** Ссылка на «Скрытые тайтлы» со счётчиком; пустая, пока ничего не скрыто. */
   const ignoredLink = h("a", { class: "btn btn-ghost ignored-link", href: "#/ignored" });
@@ -127,7 +127,7 @@ export function renderUpcoming(root, ctx, isCurrent) {
         );
       }
     }
-    clear(body).append(...parts);
+    fill(body, ...parts);
   }
 
   ctx
@@ -138,7 +138,7 @@ export function renderUpcoming(root, ctx, isCurrent) {
     })
     .catch((err) => {
       if (!isCurrent()) return;
-      clear(body).append(errorBox(err.message, { onRetry: () => renderUpcoming(root, ctx, isCurrent) }));
+      fill(body, errorBox(err.message, { onRetry: () => renderUpcoming(root, ctx, isCurrent) }));
     });
 
   return {

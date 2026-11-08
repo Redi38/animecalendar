@@ -1,4 +1,5 @@
 import { api } from "../api.js";
+import { parseListFile, resolveTitles } from "../importer.js";
 import { titleCard } from "../ui/card.js";
 import { groupSection } from "../ui/group.js";
 import { arrangeByFranchise } from "../groups.js";
@@ -6,56 +7,10 @@ import { toast } from "../ui/toast.js";
 import { confirmDialog } from "../ui/confirm.js";
 import { errorBox } from "../ui/error.js";
 import { dropdown } from "../ui/dropdown.js";
+import { listMenu } from "../ui/listmenu.js";
 import { replayEnter } from "../ui/motion.js";
 import { storageGet, storageSet } from "../storage.js";
-import { clear, formatTitles, h, plural } from "../util.js";
-
-const SEARCH_PAUSE_MS = 1100; // сервер пускает не больше 60 поисков в минуту с одного IP
-const RATE_LIMIT_WAIT_MS = 61000;
-
-const sleep = (ms, signal) =>
-  new Promise((resolve, reject) => {
-    const t = setTimeout(resolve, ms);
-    signal?.addEventListener("abort", () => {
-      clearTimeout(t);
-      reject(new DOMException("Aborted", "AbortError"));
-    });
-  });
-
-/** Названия из файла: массив строк или объектов {title}. Записи без названия пропускаются. Иначе null. */
-function titlesFromFile(data) {
-  if (!Array.isArray(data) || !data.length) return null;
-  const all = data.map((x) => (typeof x === "string" ? x : x && typeof x.title === "string" ? x.title : null));
-  const titles = all.filter((t) => t && t.trim()).map((t) => t.trim());
-  if (!titles.length) return null;
-  return { titles, skipped: all.length - titles.length };
-}
-
-/** Ищет каждое название через поиск сайта и берёт первый результат. */
-async function resolveTitles(titles, onProgress, signal) {
-  const found = []; // { title, id }
-  const failed = []; // { title, reason }
-  for (let i = 0; i < titles.length; i++) {
-    onProgress(i, titles.length);
-    let items = null;
-    let reason = "не найдено в каталоге";
-    for (let attempt = 0; attempt < 2 && items === null; attempt++) {
-      try {
-        items = (await api.search(titles[i], true, signal)).items;
-      } catch (err) {
-        if (err.name === "AbortError") throw err;
-        reason = err.status === 429 ? "слишком много запросов" : "ошибка поиска";
-        if (err.status === 429 && attempt === 0) await sleep(RATE_LIMIT_WAIT_MS, signal);
-        else break;
-      }
-    }
-    if (items && items.length) found.push({ title: titles[i], id: items[0].id });
-    else failed.push({ title: titles[i], reason });
-    await sleep(SEARCH_PAUSE_MS, signal);
-  }
-  onProgress(titles.length, titles.length);
-  return { found, failed };
-}
+import { clear, download, fill, formatTitles, h, plural } from "../util.js";
 
 const SORT_KEY = "anime_calendar_watched_sort_v1";
 const SORTS = [
@@ -71,68 +26,6 @@ function loadSort() {
 
 function saveSort(v) {
   storageSet(SORT_KEY, v);
-}
-
-function download(name, text) {
-  const url = URL.createObjectURL(new Blob([text], { type: "application/json" }));
-  const a = h("a", { href: url, download: name });
-  document.body.append(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
-/**
- * Одна кнопка «Список» вместо трёх: меню собирается при открытии, поэтому пункты зависят от того,
- * пуст ли список сейчас. items() -> [{ label, run, danger? }].
- */
-function listMenu(items) {
-  const setOpen = (open) => {
-    if (open) {
-      menu.replaceChildren(
-        ...items().map((a) =>
-          h(
-            "button",
-            {
-              type: "button",
-              class: `dialog-menu-item${a.danger ? " is-danger" : ""}`,
-              role: "menuitem",
-              onclick: () => {
-                setOpen(false);
-                a.run();
-              },
-            },
-            a.label,
-          ),
-        ),
-      );
-      document.addEventListener("pointerdown", onOutside, true);
-    } else {
-      document.removeEventListener("pointerdown", onOutside, true);
-    }
-    menu.hidden = !open;
-    btn.setAttribute("aria-expanded", String(open));
-    if (open) menu.firstElementChild?.focus();
-  };
-  const onOutside = (event) => {
-    if (!root.contains(event.target)) setOpen(false);
-  };
-  const menu = h("div", { class: "list-menu-list", role: "menu", hidden: true });
-  const btn = h(
-    "button",
-    { type: "button", class: "btn", "aria-haspopup": "menu", "aria-expanded": "false", onclick: () => setOpen(menu.hidden) },
-    "Управление списком",
-    h("span", { class: "dropdown-chevron", "aria-hidden": "true" }),
-  );
-  const root = h("div", { class: "list-menu" }, btn, menu);
-  root.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && !menu.hidden) {
-      event.preventDefault();
-      setOpen(false);
-      btn.focus();
-    }
-  });
-  return root;
 }
 
 export function renderWatched(root, ctx, isCurrent) {
@@ -156,7 +49,7 @@ export function renderWatched(root, ctx, isCurrent) {
       );
     }
     parts.push(h("button", { type: "button", class: "btn", onclick: () => clear(report) }, "Закрыть"));
-    clear(report).append(h("div", { class: "notice", role: "alert" }, parts));
+    fill(report, h("div", { class: "notice", role: "alert" }, parts));
   }
 
   /** Карточка списка; для импортированных тайтлов показываем название из файла, чтобы заметить неверное совпадение. */
@@ -205,16 +98,13 @@ export function renderWatched(root, ctx, isCurrent) {
       e.target.value = "";
       if (!file) return;
       try {
-        const data = JSON.parse(await file.text());
-        const parsed = titlesFromFile(data);
-        if (parsed) {
+        const parsed = parseListFile(JSON.parse(await file.text()));
+        if (parsed.kind === "titles") {
           toast(`Ищем ${parsed.titles.length} тайтлов по названиям, это займёт пару минут`);
           importTitles(parsed);
           return;
         }
-        const ids = Array.isArray(data) ? data : data.watched;
-        if (!Array.isArray(ids)) throw new Error("bad format");
-        const added = store.addMany(ids);
+        const added = store.addMany(parsed.ids);
         toast(added ? `Добавлено тайтлов: ${added}` : "Новых тайтлов в файле нет");
       } catch {
         toast("Не удалось прочитать файл. Нужен JSON, который вы скачали здесь же.", "error");
@@ -267,7 +157,8 @@ export function renderWatched(root, ctx, isCurrent) {
     fileInput,
   );
 
-  clear(root).append(
+  fill(
+    root,
     h("h1", { class: "page-title" }, "Просмотрено"),
     h(
       "p",
@@ -305,7 +196,7 @@ export function renderWatched(root, ctx, isCurrent) {
       const key = load.ids.join(",");
       if (groupsCache?.key !== key) {
         if (!keep || !list.querySelector(".grid")) {
-          clear(list).append(h("div", { class: "loading", role: "status" }, "Собираем франшизы…"));
+          fill(list, h("div", { class: "loading", role: "status" }, "Собираем франшизы…"));
         }
         try {
           const res = await api.groups(load.ids, controller.signal);
@@ -355,14 +246,15 @@ export function renderWatched(root, ctx, isCurrent) {
     } else {
       parts.push(h("div", { class: "grid" }, items.map(watchedCard)));
     }
-    clear(list).append(...parts);
+    fill(list, ...parts);
   }
 
   async function paint() {
     const ids = store.ids();
     if (!ids.length) {
       lastLoad = null;
-      clear(list).append(
+      fill(
+        list,
         h(
           "div",
           { class: "empty empty-hero" },
@@ -376,7 +268,7 @@ export function renderWatched(root, ctx, isCurrent) {
     // Добавили тайтл, пока список уже на экране: оставляем его до прихода новых данных. Заглушка вместо списка
     // схлопывает страницу, и браузер сбрасывает прокрутку вверх.
     const keep = lastLoad !== null;
-    if (!keep) clear(list).append(h("div", { class: "loading", role: "status" }, "Загружаем ваш список…"));
+    if (!keep) fill(list, h("div", { class: "loading", role: "status" }, "Загружаем ваш список…"));
     try {
       const data = await api.titles(ids, controller.signal);
       if (!isCurrent()) return;
@@ -386,7 +278,7 @@ export function renderWatched(root, ctx, isCurrent) {
     } catch (err) {
       if (err.name === "AbortError" || !isCurrent()) return;
       lastLoad = null;
-      clear(list).append(errorBox(err.message, { onRetry: paint }));
+      fill(list, errorBox(err.message, { onRetry: paint }));
     }
   }
 

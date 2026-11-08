@@ -2,10 +2,11 @@ import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
 import { groupSection } from "../ui/group.js";
 import { errorBox } from "../ui/error.js";
-import { clear, formatTitles, h } from "../util.js";
+import { fill, formatTitles, h } from "../util.js";
 
 export function renderSearch(root, { q }, ctx, isCurrent) {
-  clear(root).append(
+  fill(
+    root,
     h("h1", { class: "page-title" }, "Поиск"),
     h("p", { class: "lead" }, `Запрос: «${q}»`),
   );
@@ -18,7 +19,8 @@ export function renderSearch(root, { q }, ctx, isCurrent) {
     .then((data) => {
       if (!isCurrent()) return;
       if (!data.items.length) {
-        clear(body).append(
+        fill(
+          body,
           h(
             "div",
             { class: "empty" },
@@ -39,11 +41,11 @@ export function renderSearch(root, { q }, ctx, isCurrent) {
         );
       }
       parts.push(h("div", { class: "grid" }, data.items.map(card)));
-      clear(body).append(...parts);
+      fill(body, ...parts);
     })
     .catch((err) => {
       if (err.name === "AbortError" || !isCurrent()) return;
-      clear(body).append(errorBox(err.message, { onRetry: () => renderSearch(root, { q }, ctx, isCurrent) }));
+      fill(body, errorBox(err.message, { onRetry: () => renderSearch(root, { q }, ctx, isCurrent) }));
     });
 
   return { cleanup: () => controller.abort() };

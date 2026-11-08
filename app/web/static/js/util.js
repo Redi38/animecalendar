@@ -26,6 +26,24 @@ export function clear(el) {
   return el;
 }
 
+/**
+ * Заменяет содержимое элемента. В отличие от clear(el).append(...) пропускает null/false и раскрывает массивы:
+ * родной append() напечатал бы в странице слово «null» и «[object HTMLElement]».
+ */
+export function fill(el, ...children) {
+  return append(clear(el), children);
+}
+
+/** Отдаёт текст пользователю как файл для скачивания. */
+export function download(name, text, type = "application/json") {
+  const url = URL.createObjectURL(new Blob([text], { type }));
+  const a = h("a", { href: url, download: name });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export function debounce(fn, ms) {
   let timer;
   const wrapped = (...args) => {

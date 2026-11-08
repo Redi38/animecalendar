@@ -2,7 +2,7 @@ import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
 import { errorBox } from "../ui/error.js";
 import { replayEnter } from "../ui/motion.js";
-import { clear, debounce, formatTitles, h, normalize } from "../util.js";
+import { debounce, fill, formatTitles, h, normalize } from "../util.js";
 import { tbaTab } from "./season.js";
 
 /** Анонсы, у которых студия ещё не назвала ни сезон, ни дату выхода. */
@@ -23,7 +23,8 @@ export function renderTba(root, ctx, isCurrent) {
   );
   const toolbar = h("div", { class: "toolbar" });
   const content = h("div", { class: "season-content" }, h("div", { class: "loading", role: "status" }, "Ищем анонсы без даты…"));
-  clear(root).append(
+  fill(
+    root,
     h("h1", { class: "page-title" }, "Анонсы без даты"),
     h("p", { class: "lead" }, "Тайтлы, у которых студия ещё не объявила ни сезон, ни дату выхода. Показаны самые популярные."),
     nav,
@@ -70,7 +71,7 @@ export function renderTba(root, ctx, isCurrent) {
         )
       : null;
     const keepFocus = document.activeElement?.classList?.contains("inline-filter");
-    clear(toolbar).append(filter, h("div", { class: "chip-row" }, related));
+    fill(toolbar, filter, h("div", { class: "chip-row" }, related));
     if (keepFocus) {
       const el = toolbar.querySelector(".inline-filter");
       el.focus();
@@ -89,7 +90,8 @@ export function renderTba(root, ctx, isCurrent) {
         : `Показано ${items.length} из ${total}`,
     );
     if (!items.length) {
-      clear(content).append(
+      fill(
+        content,
         count,
         h(
           "div",
@@ -102,7 +104,8 @@ export function renderTba(root, ctx, isCurrent) {
       if (animate) replayEnter(content);
       return;
     }
-    clear(content).append(
+    fill(
+      content,
       count,
       h("div", { class: "grid" }, items.map((item) => titleCard(item, { showDate: false, related: ctx.relatedIds.has(item.id) }))),
     );
@@ -120,7 +123,7 @@ export function renderTba(root, ctx, isCurrent) {
     })
     .catch((err) => {
       if (err.name === "AbortError" || !isCurrent()) return;
-      clear(content).append(errorBox(err.message, { onRetry: () => renderTba(root, ctx, isCurrent) }));
+      fill(content, errorBox(err.message, { onRetry: () => renderTba(root, ctx, isCurrent) }));
     });
 
   return {

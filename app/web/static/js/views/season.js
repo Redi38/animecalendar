@@ -6,7 +6,7 @@ import { selectField } from "../ui/select.js";
 import { replayEnter } from "../ui/motion.js";
 import { seasonIndex, seasonStep } from "../seasons.js";
 import { readJson, writeJson } from "../storage.js";
-import { capitalize, clear, debounce, formatStart, formatTitles, h, normalize, todayIso } from "../util.js";
+import { capitalize, debounce, fill, formatStart, formatTitles, h, normalize, todayIso } from "../util.js";
 
 const CACHE_MS = 5 * 60 * 1000;
 const cache = new Map(); // "2026-fall" -> { at, data }
@@ -107,7 +107,8 @@ export function renderSeason(root, { year, slug }, ctx, isCurrent) {
   const nav = seasonNav(meta, year, slug);
   const toolbar = h("div", { class: "toolbar" });
   const content = h("div", { class: "season-content" }, h("div", { class: "loading", role: "status" }, "Загружаем сезон…"));
-  clear(root).append(
+  fill(
+    root,
     h("h1", { class: "page-title" }, `${meta.seasons.find((s) => s.slug === slug).label} ${year}`),
     nav,
     toolbar,
@@ -176,7 +177,7 @@ export function renderSeason(root, { year, slug }, ctx, isCurrent) {
         })
       : null;
     const keepFocus = document.activeElement?.classList?.contains("inline-filter");
-    clear(toolbar).append(filter, formats, h("div", { class: "chip-row" }, grouping, related));
+    fill(toolbar, filter, formats, h("div", { class: "chip-row" }, grouping, related));
     if (keepFocus) {
       const el = toolbar.querySelector(".inline-filter");
       el.focus();
@@ -213,7 +214,8 @@ export function renderSeason(root, { year, slug }, ctx, isCurrent) {
         : `Показано ${items.length} из ${total}`,
     );
     if (!items.length) {
-      clear(content).append(
+      fill(
+        content,
         count,
         h(
           "div",
@@ -243,7 +245,7 @@ export function renderSeason(root, { year, slug }, ctx, isCurrent) {
         ),
       ),
     );
-    clear(content).append(count, ...sections);
+    fill(content, count, ...sections);
     if (animate) replayEnter(content);
   }
 
@@ -257,7 +259,7 @@ export function renderSeason(root, { year, slug }, ctx, isCurrent) {
     })
     .catch((err) => {
       if (err.name === "AbortError" || !isCurrent()) return;
-      clear(content).append(errorBox(err.message, { onRetry: () => renderSeason(root, { year, slug }, ctx, isCurrent) }));
+      fill(content, errorBox(err.message, { onRetry: () => renderSeason(root, { year, slug }, ctx, isCurrent) }));
     });
 
   return {

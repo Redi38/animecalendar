@@ -1,6 +1,6 @@
 import { api } from "../api.js";
 import { store } from "../store.js";
-import { clear, debounce, formatStart, h } from "../util.js";
+import { clear, debounce, fill, formatStart, h } from "../util.js";
 import { coverEl } from "./card.js";
 import { closeDialogAnimated } from "./motion.js";
 
@@ -56,7 +56,7 @@ export function replaceDialog({ current, query }) {
       lastQuery = q;
       controller?.abort();
       controller = new AbortController();
-      clear(results).append(h("div", { class: "sug-note", role: "status" }, "Ищем…"));
+      fill(results, h("div", { class: "sug-note", role: "status" }, "Ищем…"));
       try {
         const data = await api.search(q, true, controller.signal);
         if (q !== lastQuery) return;
@@ -66,7 +66,7 @@ export function replaceDialog({ current, query }) {
         else results.append(h("div", { class: "sug-note" }, "Ничего не нашлось. Попробуйте другое название."));
       } catch (err) {
         if (err.name === "AbortError") return;
-        clear(results).append(h("div", { class: "sug-note", role: "alert" }, err.message));
+        fill(results, h("div", { class: "sug-note", role: "alert" }, err.message));
       }
     }
     const run = debounce(search, 450);

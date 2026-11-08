@@ -1,7 +1,7 @@
 import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
 import { errorBox } from "../ui/error.js";
-import { clear, formatTitles, h, plural } from "../util.js";
+import { fill, formatTitles, h, plural } from "../util.js";
 
 /** «Скрытые тайтлы»: то, что пользователь убрал из «Моих анонсов». Отсюда тайтл можно вернуть. */
 export function renderIgnored(root, ctx, isCurrent) {
@@ -10,7 +10,8 @@ export function renderIgnored(root, ctx, isCurrent) {
   const list = h("div", null);
   let loaded = null; // { items, missing } — данные по скрытым id, чтобы возврат тайтла не перезапрашивал каталог
 
-  clear(root).append(
+  fill(
+    root,
     h("a", { class: "back-link", href: "#/upcoming" }, "← Мои анонсы"),
     h("h1", { class: "page-title" }, "Скрытые тайтлы"),
     h(
@@ -24,7 +25,8 @@ export function renderIgnored(root, ctx, isCurrent) {
   function paint() {
     const ids = new Set(store.ignoredIds());
     if (!ids.size) {
-      clear(list).append(
+      fill(
+        list,
         h(
           "div",
           { class: "empty empty-hero" },
@@ -55,13 +57,13 @@ export function renderIgnored(root, ctx, isCurrent) {
         items.map((item) => titleCard(item, { showDate: true })),
       ),
     );
-    clear(list).append(...parts);
+    fill(list, ...parts);
   }
 
   async function load() {
     const ids = store.ignoredIds();
     if (!ids.length) return paint();
-    clear(list).append(h("div", { class: "loading", role: "status" }, "Загружаем скрытые тайтлы…"));
+    fill(list, h("div", { class: "loading", role: "status" }, "Загружаем скрытые тайтлы…"));
     try {
       const data = await api.titles(ids, controller.signal);
       if (!isCurrent()) return;
@@ -69,7 +71,7 @@ export function renderIgnored(root, ctx, isCurrent) {
       paint();
     } catch (err) {
       if (err.name === "AbortError" || !isCurrent()) return;
-      clear(list).append(errorBox(err.message, { onRetry: load }));
+      fill(list, errorBox(err.message, { onRetry: load }));
     }
   }
 

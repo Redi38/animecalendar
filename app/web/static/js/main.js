@@ -8,8 +8,11 @@ import { replaceDialog } from "./ui/replace.js";
 import { initSearch } from "./ui/search.js";
 import { toast } from "./ui/toast.js";
 import { initSync } from "./ui/sync.js";
+import { createPageEnter } from "./enter.js";
+import { createRelated } from "./related.js";
+import { navName, parseRoute } from "./router.js";
 import { initThemeToggle } from "./theme.js";
-import { debounce, h } from "./util.js";
+import { h } from "./util.js";
 import { renderSearch } from "./views/search.js";
 import { renderSeason } from "./views/season.js";
 import { renderIgnored } from "./views/ignored.js";
@@ -21,79 +24,30 @@ const view = document.getElementById("view");
 const badge = document.getElementById("nav-badge");
 const count = document.getElementById("nav-count");
 
+const related = createRelated({
+  store,
+  api,
+  onUpdate: () => {
+    updateBadge();
+    current?.refresh?.();
+  },
+});
+
 const ctx = {
   meta: null,
   store,
-  relatedIds: new Set(), // тайтлы, связанные с просмотренными (для отметок в сезонной сетке)
-  relatedData: null,
-  _relatedPromise: null,
-  _relatedKey: "",
-  loadRelated,
+  get relatedIds() {
+    return related.ids;
+  },
+  get relatedData() {
+    return related.data;
+  },
+  loadRelated: related.load,
   updateBadge,
 };
 
-// --- связанные анонсы: один запрос на состояние списка --------------------------
-
-function listKey() {
-  return store.ids().sort((a, b) => a - b).join(",");
-}
-
-const RELATED_RETRY_MS = 3000;
-const RELATED_MAX_RETRIES = 20;
-
-// Сервер за один вызов докачивает ограниченное число тайтлов. Пока он сообщает incomplete,
-// повторяем запрос: каждый раз обход связей продвигается дальше.
-function scheduleRelatedRetry(key) {
-  if (ctx._retryKey !== key) {
-    ctx._retryKey = key;
-    ctx._retries = 0;
-  }
-  if (ctx._retries >= RELATED_MAX_RETRIES) return;
-  ctx._retries += 1;
-  setTimeout(() => {
-    if (listKey() !== key) return;
-    loadRelated()
-      .then(() => {
-        updateBadge();
-        current?.refresh?.();
-      })
-      .catch(() => {
-        /* вкладка анонсов сама покажет ошибку, когда её откроют */
-      });
-  }, RELATED_RETRY_MS);
-}
-
-function loadRelated() {
-  const key = listKey();
-  if (!key) {
-    ctx.relatedData = { items: [], degraded: false };
-    ctx.relatedIds = new Set();
-    ctx._relatedKey = "";
-    return Promise.resolve(ctx.relatedData);
-  }
-  if (ctx.relatedData && ctx._relatedKey === key && !ctx.relatedData.degraded && !ctx.relatedData.incomplete) return Promise.resolve(ctx.relatedData);
-  if (ctx._relatedPromise && ctx._relatedPromiseKey === key) return ctx._relatedPromise;
-
-  ctx._relatedPromiseKey = key;
-  ctx._relatedPromise = api
-    .related(store.ids())
-    .then((data) => {
-      if (listKey() !== key) return loadRelated(); // список изменился, пока шёл запрос
-      ctx.relatedData = data;
-      ctx._relatedKey = key;
-      // «★» ставится по всем связанным тайтлам, в том числе уже вышедшим, а не только по анонсам
-      ctx.relatedIds = new Set([...data.items.map((i) => i.id), ...(data.linked || [])]);
-      if (data.incomplete) scheduleRelatedRetry(key);
-      return data;
-    })
-    .finally(() => {
-      if (ctx._relatedPromiseKey === key) ctx._relatedPromise = null;
-    });
-  return ctx._relatedPromise;
-}
-
 function updateBadge() {
-  const data = ctx.relatedData;
+  const data = related.data;
   const fresh = data && store.seenReady() ? data.items.filter((i) => !store.isSeen(i.id) && !store.isIgnored(i.id)).length : 0;
   badge.hidden = fresh === 0;
   badge.textContent = fresh > 99 ? "99+" : String(fresh);
@@ -101,29 +55,17 @@ function updateBadge() {
   count.textContent = store.size() ? String(store.size()) : "";
 }
 
-// Фоновое обновление отметок после изменения списка.
-const refreshRelatedSoon = debounce(() => {
-  loadRelated()
-    .then(() => {
-      updateBadge();
-      current?.refresh?.();
-    })
-    .catch(() => {
-      /* вкладка анонсов сама покажет ошибку, когда её откроют */
-    });
-}, 700);
-
-let subscribedKey = listKey();
+let subscribedKey = related.listKey();
 store.subscribe((source) => {
   syncWatchButtons();
   updateBadge();
   // Список обновила синхронизация с другого устройства: открытая страница перерисовывается сразу.
   if (source === "sync") current?.refresh?.();
   // Анонсы зависят только от списка просмотренного: скрытие и возврат тайтла не должны перерисовывать страницу второй раз.
-  const key = listKey();
+  const key = related.listKey();
   if (key === subscribedKey) return;
   subscribedKey = key;
-  refreshRelatedSoon();
+  related.refreshSoon();
 });
 
 // --- маршрутизация ---------------------------------------------------------------
@@ -136,27 +78,6 @@ const pageTitle = "Аниме-календарь"; // название вкла�
 initThemeToggle(document.getElementById("theme-toggle"));
 const search = initSearch();
 
-function parseRoute(hash) {
-  const path = hash.replace(/^#/, "") || "/";
-  let m;
-  if ((m = path.match(/^\/title\/(\d+)$/))) return { name: "title", id: Number(m[1]) };
-  if ((m = path.match(/^\/season\/(\d{4})\/(winter|spring|summer|fall)$/))) {
-    return { name: "season", year: Number(m[1]), slug: m[2] };
-  }
-  if ((m = path.match(/^\/search\/(.+)$/))) {
-    try {
-      return { name: "search", q: decodeURIComponent(m[1]).slice(0, 100) };
-    } catch {
-      return { name: "home" };
-    }
-  }
-  if (path === "/tba") return { name: "tba" };
-  if (path === "/watched") return { name: "watched" };
-  if (path === "/upcoming") return { name: "upcoming" };
-  if (path === "/ignored") return { name: "ignored" };
-  return { name: "home" };
-}
-
 function markNav(name) {
   for (const a of document.querySelectorAll("[data-nav]")) {
     const active = a.dataset.nav === name || (name === "home" && a.dataset.nav === "season");
@@ -165,27 +86,7 @@ function markNav(name) {
   }
 }
 
-// Анимация появления страницы и карточек включается только на момент перехода: html[data-enter]
-// живёт недолго и снимается при первом касании или нажатии клавиши, чтобы перерисовка списка
-// (ввод в фильтр, дозагрузка связей) не запускала её снова.
-const ENTER_MS = 2500;
-let enterTimer = 0;
-
-function stopEnter() {
-  delete document.documentElement.dataset.enter;
-  clearTimeout(enterTimer);
-}
-
-function playEnter() {
-  document.documentElement.dataset.enter = "1";
-  view.classList.remove("page-enter");
-  void view.offsetWidth; // перезапуск CSS-анимации
-  view.classList.add("page-enter");
-  clearTimeout(enterTimer);
-  enterTimer = setTimeout(stopEnter, ENTER_MS);
-}
-
-for (const type of ["pointerdown", "keydown"]) window.addEventListener(type, stopEnter, { capture: true });
+const pageEnter = createPageEnter(view);
 
 function showPage(route) {
   const myNav = ++navId;
@@ -194,8 +95,7 @@ function showPage(route) {
   current = null;
   window.scrollTo(0, 0);
   baseHash = location.hash || "#/";
-  const navName = route.name === "season" || route.name === "tba" ? "season" : route.name === "ignored" ? "upcoming" : route.name;
-  markNav(navName);
+  markNav(navName(route));
 
   if (route.name === "home") {
     const { year, season } = ctx.meta.current;
@@ -204,7 +104,7 @@ function showPage(route) {
   }
 
   document.title = pageTitle;
-  playEnter();
+  pageEnter.play();
 
   if (route.name === "season") current = renderSeason(view, route, ctx, isCurrent);
   else if (route.name === "tba") current = renderTba(view, ctx, isCurrent);
@@ -309,7 +209,7 @@ async function start() {
   window.addEventListener("hashchange", onRoute);
   onRoute();
   // Прогреваем анонсы для значка на вкладке, не мешая основному экрану.
-  if (store.size()) refreshRelatedSoon();
+  if (store.size()) related.refreshSoon();
 }
 
 window.addEventListener("unhandledrejection", (event) => {

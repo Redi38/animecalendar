@@ -1,5 +1,5 @@
 import { api } from "../api.js";
-import { clear, debounce, h, formatStart } from "../util.js";
+import { clear, debounce, fill, formatStart, h } from "../util.js";
 import { coverEl, watchButton } from "./card.js";
 import { groupSection } from "./group.js";
 
@@ -48,7 +48,7 @@ export function initSearch() {
     controller?.abort();
     controller = new AbortController();
     open();
-    clear(panel).append(h("div", { class: "sug-note", role: "status" }, "Ищем…"));
+    fill(panel, h("div", { class: "sug-note", role: "status" }, "Ищем…"));
     try {
       const data = await api.search(q, false, controller.signal);
       if (q !== lastQuery) return;
@@ -67,7 +67,7 @@ export function initSearch() {
       );
     } catch (err) {
       if (err.name === "AbortError") return;
-      clear(panel).append(h("div", { class: "sug-note", role: "alert" }, err.message));
+      fill(panel, h("div", { class: "sug-note", role: "alert" }, err.message));
     }
   }, 250);
 

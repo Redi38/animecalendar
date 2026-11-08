@@ -4,7 +4,7 @@ import { createServerAuth } from "../gserver.js";
 import { readJson, writeJson } from "../storage.js";
 import { store } from "../store.js";
 import { SYNC_KEY, createSync } from "../sync.js";
-import { clear, h } from "../util.js";
+import { fill, h } from "../util.js";
 import { closeDialogAnimated } from "./motion.js";
 import { toast } from "./toast.js";
 
@@ -83,7 +83,7 @@ function openDialog(sync) {
         )
       : null;
 
-    // append() у элемента не пропускает null и написал бы в окно слово «null», поэтому пустые части убираем.
+
     const parts = [
       h("div", { class: `confirm-icon sync-icon is-${s.status}`, "aria-hidden": "true" }, "☁"),
       h("h2", { id: "sync-title" }, TITLES[s.status] || TITLES.off),
@@ -96,8 +96,8 @@ function openDialog(sync) {
       facts,
       h("div", { class: "confirm-actions" }, primary),
       off,
-    ].filter(Boolean);
-    clear(body).append(...parts);
+    ];
+    fill(body, ...parts);
   }
 
   // Клик обязан запускать окно входа сам (иначе браузер его заблокирует), поэтому ждём результат прямо здесь.
