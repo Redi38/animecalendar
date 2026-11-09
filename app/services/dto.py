@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.i18n import FORMAT_RU, GENRE_RU, RELATION_RU, SOURCE_RU, STATUS_RU, normalize
-from app.json_util import loads_list
+from app.json_util import loads_list, loads_studios
 from app.seasons import SEASON_RU, label
 
 
@@ -81,7 +81,7 @@ def card(row: dict[str, Any], *, now: int) -> dict[str, Any]:
         "cover": row.get("cover"),
         "color": row.get("cover_color"),
         "genres": [GENRE_RU.get(g, g) for g in loads_list(row.get("genres"))],
-        "studios": loads_list(row.get("studios")),
+        "studios": loads_studios(row.get("studios")),
         "score": round(score / 10, 1) if score else None,
         "popularity": row.get("popularity") or 0,
         "partial": bool(row.get("partial")),

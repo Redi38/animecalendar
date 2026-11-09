@@ -12,6 +12,7 @@ from app.ratelimit import limiter
 from app.seasons import SEASON_RU
 from app.services import dto
 from app.services.catalog import NotFound
+from app.services.studios import MAX_PAGE
 
 from .deps import CatalogDep, YummyDep
 
@@ -81,6 +82,17 @@ async def get_title(title_id: TitleId, catalog: CatalogDep) -> dict:
         return await catalog.detail(title_id)
     except NotFound:
         raise HTTPException(404, "Тайтл не найден") from None
+
+
+@router.get("/studio/{studio_id}", dependencies=[Depends(limiter(30))])
+async def get_studio(
+    studio_id: TitleId, catalog: CatalogDep, page: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 1
+) -> dict:
+    """Тайтлы студии, где она главная, от новых к старым; page — страница по 50 штук."""
+    try:
+        return await catalog.studio(studio_id, page)
+    except NotFound:
+        raise HTTPException(404, "Студия не найдена") from None
 
 
 @router.get("/title/{title_id}/watch", dependencies=[Depends(limiter(30))])

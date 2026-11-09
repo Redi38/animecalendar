@@ -46,7 +46,7 @@ fragment M on Media {
   averageScore
   popularity
   coverImage { large color }
-  studios(isMain: true) { nodes { name } }
+  studios(isMain: true) { nodes { id name } }
   nextAiringEpisode { airingAt episode }
   description(asHtml: false)
   relations {
@@ -97,6 +97,36 @@ query ($page: Int, $per: Int) {
 """
     + _MEDIA_FRAGMENT
 )
+
+# Список тайтлов студии: лёгкие записи (как у узлов связей), полную карточку тайтл получит при открытии.
+# Только главные студии (isMain), от новых к старым. Имя студии приходит вместе с первой страницей.
+Q_STUDIO = """
+query ($id: Int, $page: Int, $per: Int) {
+  Studio(id: $id) {
+    id
+    name
+    media(page: $page, perPage: $per, sort: [START_DATE_DESC, ID_DESC], isMain: true) {
+      pageInfo { hasNextPage }
+      nodes {
+        id
+        idMal
+        type
+        isAdult
+        title { romaji english native }
+        format
+        status
+        season
+        seasonYear
+        startDate { year month day }
+        episodes
+        averageScore
+        popularity
+        coverImage { large color }
+      }
+    }
+  }
+}
+"""
 
 Q_BY_IDS = (
     """
@@ -171,10 +201,19 @@ def _node_row(node: dict, *, partial: bool) -> dict[str, Any]:
     }
 
 
+def parse_studios(media: dict) -> list[dict[str, Any]]:
+    """Главные студии тайтла: [{"id": 11, "name": "MAPPA"}]. Студия без ID остаётся просто названием."""
+    out: list[dict[str, Any]] = []
+    for s in (media.get("studios") or {}).get("nodes") or []:
+        if s and s.get("name"):
+            out.append({"id": s.get("id"), "name": s["name"]})
+    return out
+
+
 def parse_media(media: dict) -> dict[str, Any]:
     """Полная запись тайтла из Media."""
     row = _node_row(media, partial=False)
-    studios = [s["name"] for s in ((media.get("studios") or {}).get("nodes") or []) if s and s.get("name")]
+    studios = parse_studios(media)
     nxt = media.get("nextAiringEpisode") or {}
     row.update(
         {
@@ -188,6 +227,22 @@ def parse_media(media: dict) -> dict[str, Any]:
         }
     )
     return row
+
+
+# Музыкальные клипы в списки студий не берём: это не тайтлы, за которыми следят.
+SKIPPED_FORMATS = frozenset({"MUSIC"})
+
+
+def parse_list_nodes(nodes: list[dict], *, allow_adult: bool = False) -> list[dict[str, Any]]:
+    """Неполные записи из списка тайтлов студии. Аниме без музыкальных клипов; взрослое — только при allow_adult."""
+    out: list[dict[str, Any]] = []
+    for node in nodes:
+        if not node or not node.get("id") or node.get("type") not in (None, "ANIME"):
+            continue
+        if node.get("format") in SKIPPED_FORMATS or (node.get("isAdult") and not allow_adult):
+            continue
+        out.append(_node_row(node, partial=True))
+    return out
 
 
 def is_tba(media: dict) -> bool:
@@ -279,6 +334,13 @@ class AniListClient:
         data = await self._query(Q_TBA, {"page": page, "per": PER_PAGE})
         block = data.get("Page") or {}
         return block.get("media") or [], bool((block.get("pageInfo") or {}).get("hasNextPage"))
+
+    async def studio_page(self, studio_id: int, page: int) -> tuple[str | None, list[dict], bool]:
+        """Страница тайтлов студии: (название студии, узлы тайтлов, есть ли следующая страница)."""
+        data = await self._query(Q_STUDIO, {"id": studio_id, "page": page, "per": PER_PAGE})
+        studio = data.get("Studio") or {}
+        media = studio.get("media") or {}
+        return studio.get("name"), media.get("nodes") or [], bool((media.get("pageInfo") or {}).get("hasNextPage"))
 
     async def by_ids(self, ids: list[int]) -> list[dict]:
         out: list[dict] = []

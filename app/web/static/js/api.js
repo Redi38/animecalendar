@@ -34,6 +34,7 @@ export const api = {
   season: (year, slug, signal) => request(`/api/season/${year}/${slug}`, { signal }),
   watchPage: (id, signal) => request(`/api/title/${id}/watch`, { signal }),
   tba: (signal) => request("/api/tba", { signal }),
+  studio: (id, page, signal) => request(`/api/studio/${id}?page=${page}`, { signal }),
   title: (id, signal) => request(`/api/title/${id}`, { signal }),
   search: (q, deep = false, signal) =>
     request(`/api/search?q=${encodeURIComponent(q)}${deep ? "&deep=true" : ""}`, { signal }),

@@ -378,6 +378,13 @@ dialog { overscroll-behavior: contain; }
 .ignored-link[hidden] { display: none; }
 .back-link { display: inline-block; margin-bottom: 8px; color: var(--muted); font-weight: 700; text-decoration: none; }
 .back-link:hover { color: var(--text); }
+.studio-link { color: var(--primary); font-weight: 700; text-decoration: none; }
+.studio-link:hover, .studio-link:focus-visible { text-decoration: underline; }
+.year-section { margin-bottom: 8px; }
+.year-heading { display: flex; align-items: baseline; gap: 10px; margin: 26px 0 12px; font-size: 22px; }
+.year-count { color: var(--muted); font-size: 14px; font-weight: 600; }
+.load-more { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 24px 0 8px; }
+.load-more .notice { margin-bottom: 0; }
 .dialog-menu { position: sticky; top: 10px; float: right; margin: 10px 8px 0 0; z-index: 3; }
 .dialog-menu-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--card); color: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
 .dialog-menu-btn:hover { background: var(--card-2); }

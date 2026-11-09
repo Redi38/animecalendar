@@ -19,12 +19,14 @@ from typing import Any
 
 from app.db import Database
 from app.i18n import has_cyrillic, normalize
+from app.json_util import loads_studios
 from app.providers.anilist import AniListError
 from app.providers.ports import AniListPort, ShikimoriPort
 from app.services import dto
 from app.services.groups import MAX_GROUP_SIZE, Group, GroupService
 from app.services.ingest import Ingest
 from app.services.related_service import RelatedService
+from app.services.studios import StudioNotFound, StudioService
 from app.services.sync import SyncService
 
 logger = logging.getLogger(__name__)
@@ -57,6 +59,7 @@ class Catalog:
         self._sync = SyncService(self._ingest)
         self._related = RelatedService(self._ingest)
         self._groups = GroupService(self._ingest)
+        self._studios = StudioService(self._ingest)
         self._search_cache: dict[str, tuple[float, list[int]]] = {}
 
     # --- служебное -----------------------------------------------------------
@@ -154,6 +157,24 @@ class Catalog:
             for g in built
         ]
 
+    # --- студии ------------------------------------------------------------------
+
+    async def studio(self, studio_id: int, page: int) -> dict[str, Any]:
+        """Страница тайтлов студии. NotFound, если такой студии нет."""
+        try:
+            result = await self._studios.page(studio_id, page)
+        except StudioNotFound:
+            raise NotFound(studio_id) from None
+        now = self.now()
+        return {
+            "id": result.id,
+            "name": result.name,
+            "page": page,
+            "has_next": result.has_next,
+            "synced_at": result.synced_at,
+            "items": [dto.card(r, now=now) for r in result.items],
+        }
+
     # --- карточки --------------------------------------------------------------
 
     async def titles_by_ids(self, ids: list[int]) -> tuple[list[dict], list[int]]:
@@ -173,10 +194,15 @@ class Catalog:
         cards = [dto.card(rows[i], now=now) for i in unique if i in rows]
         return cards, [i for i in unique if i not in rows]
 
+    @staticmethod
+    def _studios_lack_ids(row: dict) -> bool:
+        """Запись сохранена до того, как мы начали хранить ID студий: один раз обновим её, чтобы студия стала ссылкой."""
+        return any(s["id"] is None for s in loads_studios(row.get("studios")))
+
     async def detail(self, title_id: int) -> dict:
         rows = await self.db.get_titles([title_id], full=True)
         row = rows.get(title_id)
-        if row is None or row["partial"]:
+        if row is None or row["partial"] or self._studios_lack_ids(row):
             try:
                 await self._ingest.fetch_and_store([title_id])
             except AniListError:

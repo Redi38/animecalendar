@@ -15,6 +15,7 @@ export function parseRoute(hash) {
       return { name: "home" };
     }
   }
+  if ((m = path.match(/^\/studio\/(\d+)$/))) return { name: "studio", id: Number(m[1]) };
   if (path === "/tba") return { name: "tba" };
   if (path === "/watched") return { name: "watched" };
   if (path === "/upcoming") return { name: "upcoming" };
@@ -22,7 +23,7 @@ export function parseRoute(hash) {
   return { name: "home" };
 }
 
-/** Какой пункт верхнего меню подсвечивать для страницы: «Афиша» держит сезоны и анонсы без даты, «Скрытые» живут под «Моими анонсами». */
+/** Какой пункт верхнего меню подсвечивать для страницы: «Афиша» держит сезоны и анонсы без даты, «Скрытые» живут под «Моими анонсами»; у страницы студии пункта нет. */
 export function navName(route) {
   if (route.name === "season" || route.name === "tba") return "season";
   if (route.name === "ignored") return "upcoming";

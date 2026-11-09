@@ -20,7 +20,7 @@ MEDIA = {
     "averageScore": None,
     "popularity": 1234,
     "coverImage": {"large": "https://s4.anilist.co/x.jpg", "color": "#ff0000"},
-    "studios": {"nodes": [{"name": "Studio A"}, {"name": "Studio B"}]},
+    "studios": {"nodes": [{"id": 11, "name": "Studio A"}, {"id": 12, "name": "Studio B"}]},
     "nextAiringEpisode": None,
     "description": "Line one<br>Line <i>two</i>",
     "relations": {
@@ -44,7 +44,7 @@ def test_parse_media_maps_fields_and_tolerates_nulls():
     assert (row["start_year"], row["start_month"], row["start_day"]) == (2027, 1, None)
     assert row["episodes"] is None and row["score"] is None
     assert json.loads(row["genres"]) == ["Action", "Sci-Fi"]
-    assert json.loads(row["studios"]) == ["Studio A", "Studio B"]
+    assert json.loads(row["studios"]) == [{"id": 11, "name": "Studio A"}, {"id": 12, "name": "Studio B"}]
     assert row["next_ep_at"] is None
     assert row["description"] == "Line one\nLine two"
     assert row["partial"] == 0

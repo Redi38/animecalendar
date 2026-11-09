@@ -39,6 +39,15 @@ function fact(label, value) {
   return value ? h("div", { class: "fact" }, h("dt", null, label), h("dd", null, value)) : null;
 }
 
+/** Студии через запятую: если известен ID, название ведёт на страницу студии со всеми её тайтлами. */
+function studioLinks(studios) {
+  if (!studios.length) return null;
+  return studios.flatMap((s, i) => [
+    i ? ", " : null,
+    s.id ? h("a", { class: "studio-link", href: `#/studio/${s.id}` }, s.name) : s.name,
+  ]);
+}
+
 function relationRow(rel) {
   const when = formatStart(rel.start, rel.start_precision, "short");
   return h(
@@ -108,7 +117,7 @@ export function titleBody(d) {
       fact("Серий", episodes),
       fact("Длительность", duration),
       fact("Следующая серия", next),
-      fact("Студия", d.studios.join(", ")),
+      fact("Студия", studioLinks(d.studios)),
       fact("Первоисточник", d.source_ru),
       fact("Жанры", d.genres.join(", ")),
     ),

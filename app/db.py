@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from collections.abc import Iterable, Sequence
 from typing import Any
@@ -64,6 +65,17 @@ CREATE TABLE IF NOT EXISTS relations (
     PRIMARY KEY (source_id, target_id, relation_type)
 );
 CREATE INDEX IF NOT EXISTS idx_relations_target ON relations (target_id);
+
+-- Страницы списка тайтлов студии (порядок AniList: от новых к старым). Сами тайтлы лежат в titles.
+CREATE TABLE IF NOT EXISTS studio_pages (
+    studio_id INTEGER NOT NULL,
+    page INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    ids TEXT NOT NULL,
+    has_next INTEGER NOT NULL,
+    synced_at INTEGER NOT NULL,
+    PRIMARY KEY (studio_id, page)
+);
 
 CREATE TABLE IF NOT EXISTS season_sync (
     key TEXT PRIMARY KEY,
@@ -215,6 +227,22 @@ class Database:
             row = await cur.fetchone()
         return row["synced_at"] if row else None
 
+    async def studio_page(self, studio_id: int, page: int) -> dict[str, Any] | None:
+        """Сохранённая страница студии: {name, ids, has_next, synced_at} или None."""
+        async with self.conn.execute(
+            "SELECT name, ids, has_next, synced_at FROM studio_pages WHERE studio_id = ? AND page = ?",
+            (studio_id, page),
+        ) as cur:
+            row = await cur.fetchone()
+        if row is None:
+            return None
+        return {
+            "name": row["name"],
+            "ids": [i for i in json.loads(row["ids"]) if isinstance(i, int)],
+            "has_next": bool(row["has_next"]),
+            "synced_at": row["synced_at"],
+        }
+
     async def ids_needing_ru(self, ids: Sequence[int], checked_before: int) -> list[tuple[int, int]]:
         """(id, mal_id) из ids, для которых русское название ещё не искали или давно не проверяли."""
         rows = await self._select_in(
@@ -288,6 +316,24 @@ class Database:
     async def _upsert_partial_locked(self, rows: list[dict[str, Any]], now: int) -> None:
         unique = {r["id"]: r for r in rows}  # узел может встретиться у нескольких тайтлов
         await self._upsert_rows(list(unique.values()), ["id", *_BASIC], partial=True, now=now)
+
+    async def save_studio_page(
+        self, studio_id: int, page: int, name: str, ids: list[int], has_next: bool, now: int
+    ) -> None:
+        async with self._write:
+            await self.conn.execute(
+                "INSERT INTO studio_pages (studio_id, page, name, ids, has_next, synced_at) VALUES (?, ?, ?, ?, ?, ?) "
+                "ON CONFLICT(studio_id, page) DO UPDATE SET name = excluded.name, ids = excluded.ids, "
+                "has_next = excluded.has_next, synced_at = excluded.synced_at",
+                (studio_id, page, name, json.dumps(ids), int(has_next), now),
+            )
+            await self.conn.commit()
+
+    async def upsert_partial(self, rows: list[dict[str, Any]], now: int) -> None:
+        """Неполные записи (из списка студии, из связей): полную запись они не затирают."""
+        async with self._write:
+            await self._upsert_partial_locked(rows, now)
+            await self.conn.commit()
 
     async def mark_season(self, key: str, now: int, total: int) -> None:
         async with self._write:

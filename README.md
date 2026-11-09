@@ -192,6 +192,7 @@ All endpoints are under `/api`. Interactive documentation is at `/docs` (FastAPI
 | `GET /api/season/{year}/{season}` | Cards of a season (`winter`, `spring`, `summer`, `fall`). |
 | `GET /api/tba` | Announcements without a season or date. |
 | `GET /api/title/{id}` | Full title card with relations. |
+| `GET /api/studio/{id}?page=` | Titles of a studio (main studio only, no music clips), newest first, 40 per page at most. Cached in SQLite for 7 days; an outage serves the stale copy. 30 requests per minute. |
 | `GET /api/title/{id}/watch` | Exact page of the title on the watch site (`{"url": ...}` or `null`). 30 requests per minute. |
 | `GET /api/search?q=...&deep=` | Search by title; `deep=true` also asks AniList/Shikimori. Besides `items` it returns `groups`: franchises of the found titles with all their members, shown before the titles themselves. 60 requests per minute. |
 | `POST /api/titles` | Cards by a list of IDs (`{"ids": [...]}`, up to 500). 30 requests per minute. |

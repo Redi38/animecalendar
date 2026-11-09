@@ -15,6 +15,7 @@ import { createTitleActions } from "./titleactions.js";
 import { initThemeToggle } from "./theme.js";
 import { renderSearch } from "./views/search.js";
 import { renderSeason } from "./views/season.js";
+import { renderStudio } from "./views/studio.js";
 import { renderIgnored } from "./views/ignored.js";
 import { renderTba } from "./views/tba.js";
 import { renderUpcoming } from "./views/upcoming.js";
@@ -111,6 +112,7 @@ function showPage(route) {
   else if (route.name === "watched") current = renderWatched(view, ctx, isCurrent);
   else if (route.name === "upcoming") current = renderUpcoming(view, ctx, isCurrent);
   else if (route.name === "ignored") current = renderIgnored(view, ctx, isCurrent);
+  else if (route.name === "studio") current = renderStudio(view, route, ctx, isCurrent);
   else if (route.name === "search") {
     search.setValue(route.q);
     current = renderSearch(view, route, ctx, isCurrent);

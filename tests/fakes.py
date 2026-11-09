@@ -82,6 +82,15 @@ FRANCHISES: list[tuple[str, str, str, str, list[str], str, str, list[tuple]]] = 
 ]  # fmt: skip
 
 
+STUDIO_BASE = 7_000
+STUDIO_NAMES: list[str] = sorted({f[5] for f in FRANCHISES})
+
+
+def studio_id(name: str) -> int:
+    """Стабильный ID вымышленной студии (в AniList у студий свои числовые ID)."""
+    return STUDIO_BASE + STUDIO_NAMES.index(name)
+
+
 def _entry_date(year: int, season: str, slot: int) -> date:
     return date(year, SEASON_START_MONTH[season], 4 + (slot * 3) % 20)
 
@@ -209,7 +218,7 @@ class FakeData:
                 "duration": 24 if e["format"] != "MOVIE" else 105,
                 "source": e["source"],
                 "genres": e["genres"],
-                "studios": {"nodes": [{"name": e["studio"]}]},
+                "studios": {"nodes": [{"id": studio_id(e["studio"]), "name": e["studio"]}]},
                 "nextAiringEpisode": nxt,
                 "description": (
                     f"<i>Демо-данные.</i><br>Вымышленная история «{e['en']}»: "
@@ -233,6 +242,9 @@ class FakeData:
 class FakeAniList:
     def __init__(self, clock: Callable[[], float] = time.time) -> None:
         self.data = FakeData(clock)
+        self.studio_page_size = 50  # в тестах уменьшают, чтобы проверить постраничную загрузку
+        self.studio_calls: list[tuple[int, int]] = []  # (studio_id, page) — сколько раз ходили «в AniList»
+        self.studio_down = False  # имитация недоступного AniList
 
     async def aclose(self) -> None:
         return None
@@ -281,6 +293,25 @@ class FakeAniList:
             for i, ru, en, pop in samples
         ]
         return media, False
+
+    async def studio_page(self, studio_id_: int, page: int) -> tuple[str | None, list[dict], bool]:
+        """Тайтлы студии от новых к старым, как у AniList. Неизвестная студия — ошибка «Not Found.»."""
+        from app.providers.anilist import AniListError
+
+        self.studio_calls.append((studio_id_, page))
+        if self.studio_down:
+            raise AniListError("HTTP 503")
+        name = next((n for n in STUDIO_NAMES if studio_id(n) == studio_id_), None)
+        if name is None:
+            raise AniListError("Not Found.")
+        mine = sorted(
+            (e for e in self.data.entries.values() if e["studio"] == name),
+            key=lambda e: (e["date"], e["id"]),
+            reverse=True,
+        )
+        size = self.studio_page_size
+        chunk = mine[(page - 1) * size : page * size]
+        return name, [self.data._node(e) for e in chunk], page * size < len(mine)
 
     async def by_ids(self, ids: list[int]) -> list[dict]:
         return [m for i in ids if (m := self.data.media(i))]

@@ -30,3 +30,10 @@ test("какой пункт меню подсвечивается", () => {
   assert.equal(navName({ name: "watched" }), "watched");
   assert.equal(navName({ name: "search" }), "search");
 });
+
+test("страница студии: адрес разбирается, пункта меню у неё нет", () => {
+  assert.deepEqual(parseRoute("#/studio/7001"), { name: "studio", id: 7001 });
+  assert.deepEqual(parseRoute("#/studio/abc"), { name: "home" });
+  assert.deepEqual(parseRoute("#/studio/"), { name: "home" });
+  assert.equal(navName({ name: "studio" }), "studio");
+});
