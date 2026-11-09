@@ -18,7 +18,6 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import Settings, settings
 from app.db import Database
-from app.demo import DemoAniList, DemoShikimori
 from app.providers.anilist import AniListClient, AniListError
 from app.providers.ports import AniListPort, ShikimoriPort
 from app.providers.shikimori import ShikimoriClient
@@ -36,15 +35,10 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 
 def build_catalog(cfg: Settings) -> Catalog:
-    anilist: AniListPort
-    shikimori: ShikimoriPort
-    if cfg.DEMO_MODE:
-        anilist, shikimori = DemoAniList(), DemoShikimori()
-    else:
-        anilist = AniListClient(cfg.ANILIST_URL, cfg.HTTP_USER_AGENT, allow_adult=cfg.ALLOW_ADULT)
-        shikimori = ShikimoriClient(
-            cfg.SHIKIMORI_BASE, cfg.HTTP_USER_AGENT, enabled=cfg.SHIKIMORI_ENABLED, allow_adult=cfg.ALLOW_ADULT
-        )
+    anilist: AniListPort = AniListClient(cfg.ANILIST_URL, cfg.HTTP_USER_AGENT, allow_adult=cfg.ALLOW_ADULT)
+    shikimori: ShikimoriPort = ShikimoriClient(
+        cfg.SHIKIMORI_BASE, cfg.HTTP_USER_AGENT, enabled=cfg.SHIKIMORI_ENABLED, allow_adult=cfg.ALLOW_ADULT
+    )
     return Catalog(
         Database(cfg.DB_PATH),
         anilist,
@@ -78,7 +72,6 @@ def create_app(cfg: Settings | None = None, catalog: Catalog | None = None) -> F
         await app.state.yummy.aclose()
 
     app = FastAPI(title="Аниме-календарь", lifespan=lifespan)
-    app.state.demo = cfg.DEMO_MODE
     app.state.google_client_id = google_client_id(cfg.GOOGLE_CLIENT_ID)
     secret = cfg.GOOGLE_CLIENT_SECRET.strip() if app.state.google_client_id else ""
     app.state.google_secret = secret
@@ -92,7 +85,6 @@ def create_app(cfg: Settings | None = None, catalog: Catalog | None = None) -> F
         cfg.WATCH_ITEM_URL,
         cfg.HTTP_USER_AGENT,
         token=cfg.WATCH_TOKEN,
-        enabled=not cfg.DEMO_MODE,  # в демо-режиме во внешние сервисы не ходим
     )
     if catalog is not None:
         app.state.catalog = catalog

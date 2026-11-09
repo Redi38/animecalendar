@@ -3,10 +3,10 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from app.demo import BASE_ID
 from app.providers.anilist import AniListError
 from app.services.catalog import Catalog, NotFound
 from app.services.related_service import RELATIONS_TTL_ACTIVE
+from tests.fakes import BASE_ID
 
 LANTERN = [BASE_ID + 0, BASE_ID + 1, BASE_ID + 2]  # 2025 осень, 2026 осень, 2027 весна
 

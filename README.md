@@ -38,7 +38,7 @@ A Russian-language anime release calendar in the spirit of livechart.me: seasona
 - **Docker and Docker Compose**, if you want to run it in a container.
 - **GNU Make**, optional: the `Makefile` only wraps the commands shown below.
 - **Node.js**, optional: only used by `make js-check` to syntax-check the frontend modules.
-- Internet access to AniList and Shikimori, except in demo mode.
+- Internet access to AniList and Shikimori.
 
 </details>
 
@@ -62,14 +62,6 @@ python3 -m venv .venv
 cp .env.example .env
 .venv/bin/uvicorn app.web:app --reload --port 8000
 ```
-
-### Demo mode (no internet)
-
-```bash
-make demo                 # made-up titles from app/demo.py, own database data/demo.db
-```
-
-Demo mode never calls external services, which makes it useful for looking at the interface, for screenshots and for development on a machine without internet access.
 
 ### Docker
 
@@ -142,7 +134,6 @@ Settings are read from environment variables or from `.env` (see [`.env.example`
 | `WATCH_TOKEN` | empty | Optional application token, sent as `X-Application`. |
 | `TRUST_PROXY_HEADERS` | `false` | Take the client IP from `X-Forwarded-For` (only behind a proxy). |
 | `PREWARM` | `true` | Load the current and next season at startup. |
-| `DEMO_MODE` | `false` | Use made-up titles and no external API calls. |
 
 The "watch online" site is an external, unofficial service. To use another one, change the three `WATCH_*` addresses; nothing else is tied to it.
 
@@ -197,7 +188,7 @@ All endpoints are under `/api`. Interactive documentation is at `/docs` (FastAPI
 
 | Method and path | Description |
 | --- | --- |
-| `GET /api/meta` | Current season, year range, season labels, demo flag, "watch online" settings. |
+| `GET /api/meta` | Current season, year range, season labels, "watch online" settings. |
 | `GET /api/season/{year}/{season}` | Cards of a season (`winter`, `spring`, `summer`, `fall`). |
 | `GET /api/tba` | Announcements without a season or date. |
 | `GET /api/title/{id}` | Full title card with relations. |
@@ -222,7 +213,7 @@ make js-check             # node --check for every frontend module
 make help                 # list all targets
 ```
 
-The tests run on the made-up data in `app/demo.py` with fake provider clients and make no network requests. The provider that talks to the watch site is tested with `httpx.MockTransport`.
+The tests run on the made-up data in `tests/fakes.py` with fake provider clients and make no network requests. The provider that talks to the watch site is tested with `httpx.MockTransport`.
 
 Project layout:
 
@@ -236,7 +227,6 @@ app/
   db.py        SQLite access via aiosqlite
   seasons.py   season arithmetic and cache lifetimes
   ratelimit.py per-IP sliding-window limiter
-  demo.py      made-up catalog for the demo and tests
 docs/screenshots/   images used by this README
 tests/
 ```

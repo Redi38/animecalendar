@@ -85,7 +85,6 @@ h1, h2, h3, p { margin: 0; }
 .muted { color: var(--muted); }
 .small { font-size: 13px; }
 
-.demo-banner { background: var(--accent); color: #fff; text-align: center; padding: 6px 12px; font-size: 13px; font-weight: 600; }
 
 /* --- шапка ------------------------------------------------------------------ */
 

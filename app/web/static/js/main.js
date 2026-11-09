@@ -11,8 +11,8 @@ import { initSync } from "./ui/sync.js";
 import { createPageEnter } from "./enter.js";
 import { createRelated } from "./related.js";
 import { navName, parseRoute } from "./router.js";
+import { createTitleActions } from "./titleactions.js";
 import { initThemeToggle } from "./theme.js";
-import { h } from "./util.js";
 import { renderSearch } from "./views/search.js";
 import { renderSeason } from "./views/season.js";
 import { renderIgnored } from "./views/ignored.js";
@@ -119,35 +119,22 @@ function showPage(route) {
   view.focus({ preventScroll: true });
 }
 
-// «Переименовать» в карточке из списка просмотренного: пользователь выбирает правильный тайтл,
-// он встаёт на место ошибочного, а карточка переключается на него.
-async function renameTitle(d) {
-  const picked = await replaceDialog({ current: d, query: store.importedAs(d.id) || d.title });
-  if (!picked) return;
-  const result = store.replace(d.id, picked.id);
-  if (result === "unchanged") return;
-  toast(result === "merged" ? `«${picked.title}» уже был в списке, прежний тайтл убран` : `Тайтл переименован: «${picked.title}»`);
-  location.replace(`#/title/${picked.id}`);
-}
+const titleActions = createTitleActions({
+  store,
+  toast,
+  pickTitle: replaceDialog,
+  closeToBase,
+  goTo: (hash) => location.replace(hash),
+});
 
-// «Игнорировать» в карточке из «Моих анонсов»: тайтл уходит в «Скрытые тайтлы», карточка закрывается.
-function ignoreTitle(d) {
-  if (!store.ignore(d.id)) return toast("В списке скрытых может быть не больше 500 тайтлов.", "error");
-  toast(`«${d.title}» скрыт из анонсов.`, "info", "Вернуть его можно на странице «Скрытые тайтлы».");
-  closeToBase();
-}
-
-// «Вернуть в анонсы» в карточке из «Скрытых тайтлов».
-function restoreTitle(d) {
-  if (!store.restore(d.id)) return;
-  toast(`«${d.title}» снова в «Моих анонсах»`, "accent");
-  closeToBase();
+// Адрес страницы под карточкой (или главная, если карточку открыли ссылкой напрямую).
+function pageUnderDialog() {
+  return baseHash && !baseHash.startsWith("#/title/") ? baseHash : "#/";
 }
 
 // Закрывает карточку и перерисовывает страницу под ней: список мог измениться.
 function closeToBase() {
-  const target = baseHash && !baseHash.startsWith("#/title/") ? baseHash : "#/";
-  history.replaceState(null, "", target);
+  history.replaceState(null, "", pageUnderDialog());
   document.title = pageTitle;
   closeDialogAnimated(document.getElementById("title-dialog")); // карточка закрывается плавно, как по крестику
   current?.refresh?.();
@@ -164,18 +151,14 @@ function onRoute() {
       baseHash = `#/season/${year}/${season.toLowerCase()}`;
       showPage({ name: "season", year, slug: season.toLowerCase() });
     }
-    const fromWatched = baseHash === "#/watched";
-    const fromUpcoming = baseHash === "#/upcoming";
-    const fromIgnored = baseHash === "#/ignored";
     openTitleDialog(
       route.id,
       () => {
         // Пользователь закрыл окно сам — возвращаем адрес страницы под ним.
-        const target = baseHash && !baseHash.startsWith("#/title/") ? baseHash : "#/";
-        history.replaceState(null, "", target);
+        history.replaceState(null, "", pageUnderDialog());
         document.title = pageTitle;
       },
-      fromWatched ? { onRename: renameTitle } : fromUpcoming ? { onIgnore: ignoreTitle } : fromIgnored ? { onRestore: restoreTitle } : {},
+      titleActions.forPage(baseHash),
     );
     return;
   }
@@ -197,12 +180,6 @@ async function start() {
   } catch (err) {
     view.replaceChildren(errorBox(err.message, { onRetry: () => location.reload(), retryLabel: "Обновить страницу" }));
     return;
-  }
-  if (ctx.meta.demo) {
-    document.body.insertAdjacentElement(
-      "afterbegin",
-      h("div", { class: "demo-banner" }, "Демо-режим: показаны вымышленные тайтлы. Настоящие данные подключаются без демо-режима."),
-    );
   }
   updateBadge();
   initSync(ctx.meta.google_client_id, Boolean(ctx.meta.google_persistent));

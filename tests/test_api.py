@@ -1,6 +1,6 @@
 import httpx
 
-from app.demo import BASE_ID
+from tests.fakes import BASE_ID
 
 
 async def test_meta(client: httpx.AsyncClient):
@@ -9,7 +9,7 @@ async def test_meta(client: httpx.AsyncClient):
     data = r.json()
     assert data["current"] == {"season": "FALL", "year": 2026}
     assert [s["label"] for s in data["seasons"]] == ["Зима", "Весна", "Лето", "Осень"]
-    assert data["max_year"] == 2028 and data["demo"] is True
+    assert data["max_year"] == 2028
 
 
 async def test_season_returns_cards_sorted_by_popularity(client: httpx.AsyncClient):

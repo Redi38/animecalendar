@@ -8,10 +8,10 @@ import pytest
 
 from app.config import Settings
 from app.db import Database
-from app.demo import DemoAniList, DemoShikimori
 from app.providers.anilist import AniListError
 from app.services.catalog import Catalog
 from app.web import create_app
+from tests.fakes import FakeAniList, FakeShikimori
 
 NOW = datetime(2026, 10, 25, 12, 0, tzinfo=UTC).timestamp()
 
@@ -29,7 +29,7 @@ class Clock:
         self.t += seconds
 
 
-class CountingAniList(DemoAniList):
+class CountingAniList(FakeAniList):
     """Демо-AniList, который считает обращения и умеет «падать»."""
 
     def __init__(self, clock: Clock) -> None:
@@ -66,7 +66,7 @@ class CountingAniList(DemoAniList):
         return sum(1 for n, _ in self.calls if n == name)
 
 
-class CountingShikimori(DemoShikimori):
+class CountingShikimori(FakeShikimori):
     def __init__(self, clock: Clock) -> None:
         super().__init__(clock)
         self.calls: list[str] = []
@@ -119,7 +119,7 @@ async def catalog(
 
 @pytest.fixture
 async def client(catalog: Catalog) -> AsyncIterator[httpx.AsyncClient]:
-    app = create_app(Settings(PREWARM=False, DEMO_MODE=True), catalog=catalog)
+    app = create_app(Settings(PREWARM=False, WATCH_API=""), catalog=catalog)
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as c:
         yield c

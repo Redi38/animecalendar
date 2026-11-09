@@ -1,7 +1,7 @@
 PYTHON ?= python3
 
 .DEFAULT_GOAL := help
-.PHONY: help venv run demo test lint typecheck js-check js-test ci up down logs
+.PHONY: help venv run test lint typecheck js-check js-test ci up down logs
 
 help: ## Показать команды
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "%-12s %s\n", $$1, $$2}'
@@ -11,9 +11,6 @@ venv: ## Создать .venv и поставить зависимости
 
 run: ## Запустить сайт на http://localhost:8000 (нужен интернет)
 	.venv/bin/uvicorn app.web:app --reload --port 8000
-
-demo: ## Запустить на вымышленных данных, без интернета
-	DEMO_MODE=true DB_PATH=data/demo.db .venv/bin/uvicorn app.web:app --reload --port 8000
 
 test: ## Тесты
 	.venv/bin/pytest

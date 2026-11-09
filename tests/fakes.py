@@ -1,9 +1,8 @@
-"""Демо-режим: вымышленные тайтлы вместо запросов к AniList и Shikimori.
+"""Подставные AniList и Shikimori для тестов: вымышленные тайтлы вместо сетевых запросов.
 
-Нужен, чтобы посмотреть интерфейс без интернета и гонять тесты на детерминированных
-данных. Все названия, студии и описания придуманы; совпадения с реальными случайны.
+Все названия, студии и описания придуманы; совпадения с реальными случайны.
 Классы повторяют интерфейс AniListClient и ShikimoriClient. Статусы и даты серий
-считаются относительно текущего времени, поэтому демо всегда «живое».
+считаются относительно текущего времени, поэтому данные всегда «живые».
 """
 
 from __future__ import annotations
@@ -87,7 +86,7 @@ def _entry_date(year: int, season: str, slot: int) -> date:
     return date(year, SEASON_START_MONTH[season], 4 + (slot * 3) % 20)
 
 
-class DemoData:
+class FakeData:
     """Строит ответы в формате AniList для вымышленного каталога."""
 
     def __init__(self, clock: Callable[[], float] = time.time) -> None:
@@ -231,9 +230,9 @@ class DemoData:
         )
 
 
-class DemoAniList:
+class FakeAniList:
     def __init__(self, clock: Callable[[], float] = time.time) -> None:
-        self.data = DemoData(clock)
+        self.data = FakeData(clock)
 
     async def aclose(self) -> None:
         return None
@@ -251,7 +250,7 @@ class DemoAniList:
         """Пара вымышленных анонсов без даты, чтобы вкладка не была пустой в демо-режиме."""
         if page > 1:
             return [], False
-        demo = [
+        samples = [
             (BASE_ID + 900, "Хроники звёздного садовника", "Chronicles of the Star Gardener", 3200),
             (BASE_ID + 901, "Последний поезд до полнолуния", "Last Train to the Full Moon", 2100),
         ]
@@ -279,7 +278,7 @@ class DemoAniList:
                 "description": f"<i>Демо-данные.</i><br>Анонс «{ru}» пока без даты выхода.",
                 "relations": {"edges": []},
             }
-            for i, ru, en, pop in demo
+            for i, ru, en, pop in samples
         ]
         return media, False
 
@@ -299,11 +298,11 @@ class DemoAniList:
         return [m for i in found[:limit] if (m := self.data.media(i))]
 
 
-class DemoShikimori:
+class FakeShikimori:
     enabled = True
 
     def __init__(self, clock: Callable[[], float] = time.time) -> None:
-        self.data = DemoData(clock)
+        self.data = FakeData(clock)
 
     async def aclose(self) -> None:
         return None

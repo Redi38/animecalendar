@@ -43,10 +43,6 @@ class Settings(BaseSettings):
     # в зашифрованной куке браузера. Без него токен живёт около часа, потом нужно входить снова. Держите в секрете.
     GOOGLE_CLIENT_SECRET: str = ""
 
-    # Демо-режим: вместо внешних API используются вымышленные тайтлы из
-    # app/demo.py. Нужен, чтобы посмотреть интерфейс без интернета.
-    DEMO_MODE: bool = False
-
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 

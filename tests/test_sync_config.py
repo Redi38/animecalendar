@@ -32,7 +32,7 @@ def test_csp_is_strict_without_google_and_opens_only_what_sign_in_needs_with_it(
 
 
 async def _client(catalog, **overrides):
-    app = create_app(Settings(PREWARM=False, DEMO_MODE=True, **overrides), catalog=catalog)
+    app = create_app(Settings(PREWARM=False, **overrides), catalog=catalog)
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
 
 

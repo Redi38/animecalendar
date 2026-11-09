@@ -1,8 +1,8 @@
 import httpx
 import pytest
 
-from app.demo import BASE_ID
 from app.services.groups import components, order_members, pick_root
+from tests.fakes import BASE_ID
 
 # демо-франшизы: «Хроники Морского Фонаря» (3 сезона) — BASE_ID+0..2, «Клинок бури» (3 сезона и фильм) — BASE_ID+40..43,
 # «Кофейня на краю света» (один сезон) — BASE_ID+30

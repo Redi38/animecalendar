@@ -40,7 +40,6 @@ async def meta(request: Request, catalog: CatalogDep, yummy: YummyDep) -> dict:
         "min_year": seasons.MIN_YEAR,
         "max_year": seasons.max_year(today),
         "seasons": [{"code": s, "slug": seasons.slug(s), "label": SEASON_RU[s]} for s in seasons.SEASONS],
-        "demo": bool(request.app.state.demo),
         "watch_url": request.app.state.watch_url,
         "watch_exact": yummy.enabled,
         "google_client_id": request.app.state.google_client_id,

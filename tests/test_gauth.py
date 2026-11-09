@@ -46,7 +46,7 @@ class FakeGoogle:
 
 
 async def _client(catalog, google: FakeGoogle | None = None, **overrides):
-    cfg = Settings(PREWARM=False, DEMO_MODE=True, GOOGLE_CLIENT_ID=CLIENT_ID, GOOGLE_CLIENT_SECRET=SECRET, **overrides)
+    cfg = Settings(PREWARM=False, GOOGLE_CLIENT_ID=CLIENT_ID, GOOGLE_CLIENT_SECRET=SECRET, **overrides)
     app = create_app(cfg, catalog=catalog)
     if google:
         app.state.google_transport = httpx.MockTransport(google.handler)
@@ -56,14 +56,14 @@ async def _client(catalog, google: FakeGoogle | None = None, **overrides):
 async def test_meta_announces_persistent_sign_in_only_with_a_secret(catalog):
     async with await _client(catalog) as c:
         assert (await c.get("/api/meta")).json()["google_persistent"] is True
-    app = create_app(Settings(PREWARM=False, DEMO_MODE=True, GOOGLE_CLIENT_ID=CLIENT_ID), catalog=catalog)
+    app = create_app(Settings(PREWARM=False, GOOGLE_CLIENT_ID=CLIENT_ID), catalog=catalog)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://test") as c:
         assert (await c.get("/api/meta")).json()["google_persistent"] is False
         assert (await c.post("/api/google/token", headers=HEADERS)).status_code == 404
 
 
 async def test_secret_without_a_valid_client_id_is_ignored(catalog):
-    app = create_app(Settings(PREWARM=False, DEMO_MODE=True, GOOGLE_CLIENT_SECRET=SECRET), catalog=catalog)
+    app = create_app(Settings(PREWARM=False, GOOGLE_CLIENT_SECRET=SECRET), catalog=catalog)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://test") as c:
         assert (await c.get("/api/meta")).json()["google_persistent"] is False
 
@@ -116,7 +116,7 @@ async def test_a_cookie_made_with_another_secret_is_rejected(catalog):
     async with await _client(catalog, google) as c:
         await c.post("/api/google/connect", json={"code": "x"}, headers=HEADERS)
         stolen = c.cookies.get(COOKIE)
-    cfg = Settings(PREWARM=False, DEMO_MODE=True, GOOGLE_CLIENT_ID=CLIENT_ID, GOOGLE_CLIENT_SECRET="another-secret")
+    cfg = Settings(PREWARM=False, GOOGLE_CLIENT_ID=CLIENT_ID, GOOGLE_CLIENT_SECRET="another-secret")
     app = create_app(cfg, catalog=catalog)
     app.state.google_transport = httpx.MockTransport(google.handler)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://test") as c2:
@@ -170,7 +170,7 @@ async def test_disconnect_revokes_at_google_and_clears_the_cookie(catalog):
 
 async def test_cookie_is_not_marked_secure_over_plain_http(catalog):
     google = FakeGoogle()
-    cfg = Settings(PREWARM=False, DEMO_MODE=True, GOOGLE_CLIENT_ID=CLIENT_ID, GOOGLE_CLIENT_SECRET=SECRET)
+    cfg = Settings(PREWARM=False, GOOGLE_CLIENT_ID=CLIENT_ID, GOOGLE_CLIENT_SECRET=SECRET)
     app = create_app(cfg, catalog=catalog)
     app.state.google_transport = httpx.MockTransport(google.handler)
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as c:
