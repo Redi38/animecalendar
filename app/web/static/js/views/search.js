@@ -1,7 +1,7 @@
 import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
 import { groupSection } from "../ui/group.js";
-import { errorBox } from "../ui/error.js";
+import { createLoader } from "../loader.js";
 import { fill, formatTitles, h } from "../util.js";
 
 export function renderSearch(root, { q }, ctx, isCurrent) {
@@ -10,14 +10,13 @@ export function renderSearch(root, { q }, ctx, isCurrent) {
     h("h1", { class: "page-title" }, "Поиск"),
     h("p", { class: "lead" }, `Запрос: «${q}»`),
   );
-  const body = h("div", null, h("div", { class: "loading", role: "status" }, "Ищем…"));
+  const body = h("div", null);
   root.append(body);
 
-  const controller = new AbortController();
-  api
-    .search(q, true, controller.signal)
-    .then((data) => {
-      if (!isCurrent()) return;
+  const loader = createLoader(isCurrent);
+  loader.load(body, (signal) => api.search(q, true, signal), {
+    loading: "Ищем…",
+    onData: (data) => {
       if (!data.items.length) {
         fill(
           body,
@@ -42,11 +41,8 @@ export function renderSearch(root, { q }, ctx, isCurrent) {
       }
       parts.push(h("div", { class: "grid" }, data.items.map(card)));
       fill(body, ...parts);
-    })
-    .catch((err) => {
-      if (err.name === "AbortError" || !isCurrent()) return;
-      fill(body, errorBox(err.message, { onRetry: () => renderSearch(root, { q }, ctx, isCurrent) }));
-    });
+    },
+  });
 
-  return { cleanup: () => controller.abort() };
+  return { cleanup: loader.abort };
 }

@@ -1,12 +1,13 @@
 import { api } from "../api.js";
 import { groupByYear } from "../studiogroups.js";
 import { titleCard } from "../ui/card.js";
+import { createLoader, loadingBox } from "../loader.js";
 import { errorBox } from "../ui/error.js";
 import { fill, formatTitles, h } from "../util.js";
 
 /** Страница студии: все тайтлы, где она главная, по годам от новых к старым. Страницы подгружаются кнопкой. */
 export function renderStudio(root, { id }, ctx, isCurrent) {
-  const controller = new AbortController();
+  const loader = createLoader(isCurrent);
   const title = h("h1", { class: "page-title" }, "Студия");
   const list = h("div", null);
   const more = h("div", { class: "load-more" });
@@ -64,37 +65,36 @@ export function renderStudio(root, { id }, ctx, isCurrent) {
   async function load(next) {
     if (loading) return;
     loading = true;
-    if (next === 1) fill(list, h("div", { class: "loading", role: "status" }, "Загружаем тайтлы студии…"));
+    if (next === 1) fill(list, loadingBox("Загружаем тайтлы студии…"));
     else paintMore();
-    try {
-      const data = await api.studio(id, next, controller.signal);
-      if (!isCurrent()) return;
-      const known = new Set(items.map((i) => i.id));
-      items = [...items, ...data.items.filter((i) => !known.has(i.id))];
-      name = data.name;
-      page = data.page;
-      hasNext = data.has_next;
-      loading = false;
-      paint();
-      paintMore();
-    } catch (err) {
-      if (err.name === "AbortError" || !isCurrent()) return;
-      loading = false;
-      if (next === 1) {
-        fill(
-          list,
-          errorBox(err.status === 404 ? "Такой студии не нашлось." : err.message, { onRetry: err.status === 404 ? null : () => load(1) }),
-        );
-      } else {
-        paintMore(err.message);
-      }
-    }
+    await loader.run(
+      (signal) => api.studio(id, next, signal),
+      (data) => {
+        const known = new Set(items.map((i) => i.id));
+        items = [...items, ...data.items.filter((i) => !known.has(i.id))];
+        name = data.name;
+        page = data.page;
+        hasNext = data.has_next;
+        loading = false;
+        paint();
+        paintMore();
+      },
+      (err) => {
+        loading = false;
+        if (next === 1) {
+          const notFound = err.status === 404;
+          fill(list, errorBox(notFound ? "Такой студии не нашлось." : err.message, { onRetry: notFound ? null : () => load(1) }));
+        } else {
+          paintMore(err.message);
+        }
+      },
+    );
   }
 
   load(1);
 
   return {
-    cleanup: () => controller.abort(),
+    cleanup: loader.abort,
     refresh: () => {
       if (isCurrent() && items.length) paint();
     },

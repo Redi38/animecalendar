@@ -1,6 +1,6 @@
 import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
-import { errorBox } from "../ui/error.js";
+import { createLoader } from "../loader.js";
 import { replayEnter } from "../ui/motion.js";
 import { debounce, fill, formatTitles, h, normalize } from "../util.js";
 import { tbaTab } from "./season.js";
@@ -22,7 +22,7 @@ export function renderTba(root, ctx, isCurrent) {
     h("a", { class: "btn btn-ghost", href: `#/season/${current.year}/${current.season.toLowerCase()}` }, "К текущему сезону"),
   );
   const toolbar = h("div", { class: "toolbar" });
-  const content = h("div", { class: "season-content" }, h("div", { class: "loading", role: "status" }, "Ищем анонсы без даты…"));
+  const content = h("div", { class: "season-content" });
   fill(
     root,
     h("h1", { class: "page-title" }, "Анонсы без даты"),
@@ -113,21 +113,17 @@ export function renderTba(root, ctx, isCurrent) {
   }
 
   paintToolbar();
-  const controller = new AbortController();
-  api
-    .tba(controller.signal)
-    .then((loaded) => {
-      if (!isCurrent()) return;
+  const loader = createLoader(isCurrent);
+  loader.load(content, (signal) => api.tba(signal), {
+    loading: "Ищем анонсы без даты…",
+    onData: (loaded) => {
       data = loaded;
       paintList();
-    })
-    .catch((err) => {
-      if (err.name === "AbortError" || !isCurrent()) return;
-      fill(content, errorBox(err.message, { onRetry: () => renderTba(root, ctx, isCurrent) }));
-    });
+    },
+  });
 
   return {
-    cleanup: () => controller.abort(),
+    cleanup: loader.abort,
     refresh: () => {
       if (!data) return;
       paintToolbar();

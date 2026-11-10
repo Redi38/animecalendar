@@ -5,6 +5,7 @@ import { groupSection } from "../ui/group.js";
 import { arrangeByFranchise } from "../groups.js";
 import { toast } from "../ui/toast.js";
 import { confirmDialog } from "../ui/confirm.js";
+import { createLoader, loadingBox } from "../loader.js";
 import { errorBox } from "../ui/error.js";
 import { dropdown } from "../ui/dropdown.js";
 import { listMenu } from "../ui/listmenu.js";
@@ -33,7 +34,7 @@ export function renderWatched(root, ctx, isCurrent) {
   const list = h("div", null);
   const status = h("p", { class: "lead", role: "status" });
   const report = h("div", null);
-  const controller = new AbortController();
+  const loader = createLoader(isCurrent);
   let importing = false;
   let sort = loadSort();
   let lastLoad = null; // { data, ids } — чтобы менять сортировку без повторного запроса
@@ -196,10 +197,10 @@ export function renderWatched(root, ctx, isCurrent) {
       const key = load.ids.join(",");
       if (groupsCache?.key !== key) {
         if (!keep || !list.querySelector(".grid")) {
-          fill(list, h("div", { class: "loading", role: "status" }, "Собираем франшизы…"));
+          fill(list, loadingBox("Собираем франшизы…"));
         }
         try {
-          const res = await api.groups(load.ids, controller.signal);
+          const res = await api.groups(load.ids, loader.signal);
           groupsCache = { key, groups: res.groups };
         } catch (err) {
           if (err.name === "AbortError" || !isCurrent()) return false;
@@ -268,18 +269,19 @@ export function renderWatched(root, ctx, isCurrent) {
     // Добавили тайтл, пока список уже на экране: оставляем его до прихода новых данных. Заглушка вместо списка
     // схлопывает страницу, и браузер сбрасывает прокрутку вверх.
     const keep = lastLoad !== null;
-    if (!keep) fill(list, h("div", { class: "loading", role: "status" }, "Загружаем ваш список…"));
-    try {
-      const data = await api.titles(ids, controller.signal);
-      if (!isCurrent()) return;
-      shownIds = new Set(ids);
-      lastLoad = { data, ids };
-      await show(keep);
-    } catch (err) {
-      if (err.name === "AbortError" || !isCurrent()) return;
-      lastLoad = null;
-      fill(list, errorBox(err.message, { onRetry: paint }));
-    }
+    if (!keep) fill(list, loadingBox("Загружаем ваш список…"));
+    await loader.run(
+      (signal) => api.titles(ids, signal),
+      async (data) => {
+        shownIds = new Set(ids);
+        lastLoad = { data, ids };
+        await show(keep);
+      },
+      (err) => {
+        lastLoad = null;
+        fill(list, errorBox(err.message, { onRetry: paint }));
+      },
+    );
   }
 
   paint();
@@ -295,7 +297,7 @@ export function renderWatched(root, ctx, isCurrent) {
 
   return {
     cleanup: () => {
-      controller.abort();
+      loader.abort();
       unsubscribe();
     },
   };

@@ -1,7 +1,7 @@
 import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
 import { orderDays } from "../daygroups.js";
-import { errorBox } from "../ui/error.js";
+import { createLoader } from "../loader.js";
 import { selectField } from "../ui/select.js";
 import { replayEnter } from "../ui/motion.js";
 import { seasonIndex, seasonStep } from "../seasons.js";
@@ -106,7 +106,7 @@ export function renderSeason(root, { year, slug }, ctx, isCurrent) {
 
   const nav = seasonNav(meta, year, slug);
   const toolbar = h("div", { class: "toolbar" });
-  const content = h("div", { class: "season-content" }, h("div", { class: "loading", role: "status" }, "Загружаем сезон…"));
+  const content = h("div", { class: "season-content" });
   fill(
     root,
     h("h1", { class: "page-title" }, `${meta.seasons.find((s) => s.slug === slug).label} ${year}`),
@@ -250,20 +250,17 @@ export function renderSeason(root, { year, slug }, ctx, isCurrent) {
   }
 
   paintToolbar();
-  const controller = new AbortController();
-  loadSeason(year, slug, { signal: controller.signal })
-    .then((loaded) => {
-      if (!isCurrent()) return;
+  const loader = createLoader(isCurrent);
+  loader.load(content, (signal) => loadSeason(year, slug, { signal }), {
+    loading: "Загружаем сезон…",
+    onData: (loaded) => {
       data = loaded;
       paintList();
-    })
-    .catch((err) => {
-      if (err.name === "AbortError" || !isCurrent()) return;
-      fill(content, errorBox(err.message, { onRetry: () => renderSeason(root, { year, slug }, ctx, isCurrent) }));
-    });
+    },
+  });
 
   return {
-    cleanup: () => controller.abort(),
+    cleanup: loader.abort,
     // Вызывается, когда подтянулись связанные тайтлы: обновляем отметки и фильтр.
     refresh: () => {
       if (!data) return;

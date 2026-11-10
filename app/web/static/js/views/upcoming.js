@@ -1,5 +1,5 @@
 import { titleCard } from "../ui/card.js";
-import { errorBox } from "../ui/error.js";
+import { createLoader } from "../loader.js";
 import { capitalize, fill, formatStart, h, plural } from "../util.js";
 
 function groupItems(items) {
@@ -54,7 +54,7 @@ export function renderUpcoming(root, ctx, isCurrent) {
     return {};
   }
 
-  const body = h("div", null, h("div", { class: "loading", role: "status" }, "Ищем анонсы по вашему списку…"));
+  const body = h("div", null);
   root.append(
     h(
       "p",
@@ -130,18 +130,11 @@ export function renderUpcoming(root, ctx, isCurrent) {
     fill(body, ...parts);
   }
 
-  ctx
-    .loadRelated()
-    .then((data) => {
-      if (!isCurrent()) return;
-      paint(data);
-    })
-    .catch((err) => {
-      if (!isCurrent()) return;
-      fill(body, errorBox(err.message, { onRetry: () => renderUpcoming(root, ctx, isCurrent) }));
-    });
+  const loader = createLoader(isCurrent);
+  loader.load(body, () => ctx.loadRelated(), { loading: "Ищем анонсы по вашему списку…", onData: paint });
 
   return {
+    cleanup: loader.abort,
     // Вызывается, когда обход связей продвинулся: перерисовываем список.
     refresh: () => {
       if (isCurrent() && ctx.relatedData) paint(ctx.relatedData);

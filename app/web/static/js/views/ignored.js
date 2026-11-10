@@ -1,12 +1,12 @@
 import { api } from "../api.js";
 import { titleCard } from "../ui/card.js";
-import { errorBox } from "../ui/error.js";
+import { createLoader } from "../loader.js";
 import { fill, formatTitles, h, plural } from "../util.js";
 
 /** «Скрытые тайтлы»: то, что пользователь убрал из «Моих анонсов». Отсюда тайтл можно вернуть. */
 export function renderIgnored(root, ctx, isCurrent) {
   const { store } = ctx;
-  const controller = new AbortController();
+  const loader = createLoader(isCurrent);
   const list = h("div", null);
   let loaded = null; // { items, missing } — данные по скрытым id, чтобы возврат тайтла не перезапрашивал каталог
 
@@ -63,22 +63,19 @@ export function renderIgnored(root, ctx, isCurrent) {
   async function load() {
     const ids = store.ignoredIds();
     if (!ids.length) return paint();
-    fill(list, h("div", { class: "loading", role: "status" }, "Загружаем скрытые тайтлы…"));
-    try {
-      const data = await api.titles(ids, controller.signal);
-      if (!isCurrent()) return;
-      loaded = data;
-      paint();
-    } catch (err) {
-      if (err.name === "AbortError" || !isCurrent()) return;
-      fill(list, errorBox(err.message, { onRetry: load }));
-    }
+    await loader.load(list, (signal) => api.titles(ids, signal), {
+      loading: "Загружаем скрытые тайтлы…",
+      onData: (data) => {
+        loaded = data;
+        paint();
+      },
+    });
   }
 
   load();
 
   return {
-    cleanup: () => controller.abort(),
+    cleanup: loader.abort,
     // Вернули тайтл из карточки: перерисовываем без запроса.
     refresh: () => {
       if (isCurrent() && loaded) paint();
