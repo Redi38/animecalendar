@@ -1,0 +1,103 @@
+/* --- общая раскладка ---------------------------------------------------------- */
+
+.container { max-width: none; width: 100%; margin: 0 auto; padding: 22px var(--gutter) 60px; flex: 1; outline: none; }
+.page-title { font-size: clamp(24px, 4vw, 34px); font-weight: 800; letter-spacing: -0.01em; margin-bottom: 14px; }
+.lead { color: var(--muted); margin-bottom: 16px; max-width: 70ch; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 16px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); font-weight: 700; cursor: pointer; text-decoration: none; }
+.btn:hover { background: var(--card-2); }
+.btn-primary { background: var(--primary); color: var(--on-primary); border-color: transparent; }
+.btn-primary:hover { background: color-mix(in srgb, var(--primary) 88%, white); }
+.btn-ghost { background: transparent; }
+.btn-danger { color: var(--danger); }
+.btn-danger:hover { background: color-mix(in srgb, var(--danger) 14%, var(--card)); border-color: color-mix(in srgb, var(--danger) 55%, var(--border)); }
+.btn-danger-solid { background: var(--danger); color: #fff; border-color: transparent; }
+.btn-danger-solid:hover { background: color-mix(in srgb, var(--danger) 88%, black); }
+
+.loading, .empty, .notice, .error-box { padding: 28px 16px; border-radius: var(--radius); text-align: center; color: var(--muted); }
+.empty { border: 1px dashed var(--border); }
+.empty-hero { padding: 48px 20px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.empty-hero h2 { color: var(--text); font-size: 20px; }
+.empty-hero p { max-width: 56ch; }
+.notice { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--text); border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent); padding: 12px 16px; margin-bottom: 16px; text-align: left; }
+.error-box { border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent); background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--text); display: flex; flex-direction: column; gap: 12px; align-items: center; }
+.loading::before { content: ""; display: inline-block; width: 16px; height: 16px; margin-right: 10px; vertical-align: -3px; border-radius: 50%; border: 2px solid var(--border); border-top-color: var(--primary); animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* --- сезоны и фильтры ----------------------------------------------------------- */
+
+.season-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; margin-bottom: 16px; }
+.year-nav { display: flex; align-items: center; gap: 6px; }
+.icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--card); border: 1px solid var(--border); text-decoration: none; font-size: 22px; line-height: 1; }
+.icon-btn:hover { background: var(--card-2); }
+.icon-btn.is-disabled { opacity: 0.35; }
+.year-select { padding: 7px 36px 7px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); font-weight: 700; appearance: none; cursor: pointer; }
+.year-select option { background: var(--card); color: var(--text); }
+
+/* Поле выбора: стрелку рисует CSS, поэтому она одного размера и цвета везде и подстраивается под тему. */
+.select-field { position: relative; display: inline-flex; align-items: center; }
+.select-field::after { content: ""; position: absolute; right: 15px; top: 50%; width: 6px; height: 6px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: translateY(-75%) rotate(45deg); pointer-events: none; transition: border-color 0.18s ease; }
+.select-field:hover::after, .select-field:focus-within::after { border-color: var(--primary); }
+.year-select:focus { outline: none; }
+.year-select:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+/* Chromium с настраиваемым <select>: оформляем и сам выпадающий список; в остальных браузерах он системный. */
+@supports (appearance: base-select) {
+  .select-field select, .select-field select::picker(select) { appearance: base-select; }
+  .select-field select::picker-icon { display: none; }
+  .select-field select::picker(select) { margin-top: 6px; padding: 4px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); color: var(--text); box-shadow: var(--shadow); }
+  .select-field option { padding: 8px 12px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+  .select-field option:hover, .select-field option:focus-visible { background: var(--card-2); outline: none; }
+  .select-field option:checked { color: var(--primary); font-weight: 800; }
+  .select-field option::checkmark { display: none; }
+}
+.season-tabs { display: flex; gap: 4px; padding: 4px; background: var(--card); border: 1px solid var(--border); border-radius: 999px; }
+.season-tab { position: relative; text-decoration: none; padding: 7px 16px; border-radius: 999px; font-weight: 700; color: var(--muted); }
+.season-tab:hover { color: var(--text); }
+.season-tab[aria-current="page"] { background: var(--primary); color: var(--on-primary); }
+.now-dot { display: inline-block; width: 7px; height: 7px; margin-left: 6px; border-radius: 50%; background: var(--good); vertical-align: middle; }
+
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-bottom: 14px; }
+.toolbar-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+.inline-filter { padding: 8px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); min-width: 240px; flex: 1 1 240px; max-width: 360px; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.filter-chip { padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: transparent; cursor: pointer; font-weight: 600; font-size: 14px; }
+.filter-chip:hover { background: var(--card); }
+.filter-chip[aria-pressed="true"] { background: rgba(var(--primary-rgb), 0.18); border-color: var(--primary); color: var(--primary); }
+.result-count { color: var(--muted); margin-bottom: 8px; font-size: 14px; }
+
+/* группа-франшиза: свёрнутая шапка, внутри сезоны, фильмы и OVA */
+.group { grid-column: 1 / -1; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.group + .group, .day-title + .group { margin-top: 10px; }
+.group-head { display: flex; align-items: center; gap: 14px; width: 100%; padding: 10px 16px 10px 10px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.group-head:hover, .group-head:focus-visible { background: var(--card-2); }
+.group-text { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 2px; }
+.group-title { font-weight: 800; font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.group-meta { font-size: 13px; color: var(--muted); }
+.group-chevron { margin-left: auto; }
+.group.is-open > .group-head .group-chevron { transform: translateY(2px) rotate(225deg); border-color: var(--primary); }
+.group.is-open > .group-head { border-bottom: 1px solid var(--border); }
+.group-body { padding: 14px; }
+.group-body[hidden] { display: none; }
+.group.is-opening .group-body { animation: fade-up 0.3s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.group.is-opening .group-body .tcard { animation: card-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+.group.is-opening .group-body .tcard:nth-child(2) { animation-delay: 35ms; }
+.group.is-opening .group-body .tcard:nth-child(3) { animation-delay: 70ms; }
+.group.is-opening .group-body .tcard:nth-child(n + 4) { animation-delay: 105ms; }
+
+/* то же в выпадающих подсказках поиска */
+.group-compact { grid-column: auto; margin-bottom: 4px; background: var(--card-2); border-color: transparent; }
+.group-compact .group-head { gap: 10px; padding: 6px 12px 6px 6px; }
+.group-compact .group-title { font-size: 15px; }
+.group-compact .group-body { padding: 4px; }
+.group-compact .sug:hover, .group-compact .sug:focus-within { background: var(--card); }
+.group-compact.is-open > .group-head { border-bottom: 1px solid var(--border); }
+.sug-heading { padding: 8px 10px 4px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+
+.day-group { margin-bottom: 26px; }
+.day-title { font-size: 17px; font-weight: 800; margin: 18px 0 10px; display: flex; align-items: center; gap: 10px; scroll-margin-top: calc(var(--topbar-h) + 10px); }
+.day-group.is-past .day-title { color: var(--muted); }
+.day-group.is-today .day-title { color: var(--primary); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(clamp(168px, 11vw, 240px), 1fr)); gap: 16px 14px; }
+@media (max-width: 420px) { .grid { grid-template-columns: repeat(2, 1fr); gap: 14px 10px; } }

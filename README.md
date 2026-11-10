@@ -223,7 +223,7 @@ app/
   providers/   AniList, Shikimori and watch-site clients (rate limits, retries, soft errors)
   services/    catalog.py (cache, seasons, search, relations), related.py (graph walk), dto.py
   web/         FastAPI app, routes and static files
-    static/    index.html, css/app.css, js/ (main.js, api.js, store.js, ui/, views/)
+    static/    index.html, css/ (base, header, layout, cards, dialogs, motion, mobile; loaded in this order), js/ (main.js, api.js, store.js, ui/, views/)
   config.py    settings from the environment
   db.py        SQLite access via aiosqlite
   seasons.py   season arithmetic and cache lifetimes

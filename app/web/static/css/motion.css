@@ -1,0 +1,83 @@
+/* --- анимации -------------------------------------------------------------------------
+   Отключаются целиком при prefers-reduced-motion (правило выше). Появление страницы и карточек
+   включается атрибутом html[data-enter] только на момент перехода (см. main.js), чтобы перерисовка
+   списка при вводе в фильтр не запускала анимацию заново. */
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fade-out { to { opacity: 0; } }
+@keyframes dialog-out { to { opacity: 0; transform: translateY(12px) scale(0.985); } }
+@keyframes chip-pop { 0% { transform: scale(0.9); } 60% { transform: scale(1.07); } 100% { transform: none; } }
+@keyframes fade-up { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes card-in { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(14px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes panel-in { from { opacity: 0; transform: translateY(-6px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes toast-out { to { opacity: 0; transform: translateY(8px) scale(0.97); } }
+@keyframes badge-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255, 59, 129, 0.55); } 60% { box-shadow: 0 0 0 7px rgba(255, 59, 129, 0); } }
+
+/* плавные состояния у всех интерактивных элементов */
+.btn, .icon-btn, .filter-chip, .nav a, .season-tab, .watch-btn, .sug, .rel-row, .dialog-close, .dialog-menu-btn, .year-select, .inline-filter, .search input, .tcard-title a {
+  transition: background-color 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease, opacity 0.18s ease;
+}
+.btn:active, .icon-btn:active, .filter-chip:active, .watch-btn:active, .dialog-close:active, .dialog-menu-btn:active { transform: scale(0.95); }
+.btn:hover, .icon-btn:hover { transform: translateY(-1px); }
+.inline-filter:focus, .search input:focus, .year-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.18); }
+.nav a:hover, .season-tab:hover { transform: translateY(-1px); }
+
+/* карточки */
+.tcard { transition: transform 0.22s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.22s ease, border-color 0.2s ease; }
+.cover img { transition: transform 0.4s ease, opacity 0.25s ease; }
+.tcard:hover .cover img { transform: scale(1.05); }
+.tcard:active { transform: translateY(-1px) scale(0.99); }
+
+/* окна, выпадающие панели, уведомления */
+dialog[open]:not(.is-closing) { animation: dialog-in 0.24s cubic-bezier(0.2, 0.7, 0.2, 1); }
+dialog[open]:not(.is-closing)::backdrop { animation: fade-in 0.22s ease-out; }
+dialog.is-closing { animation: dialog-out 0.2s cubic-bezier(0.4, 0, 1, 1) forwards; }
+dialog.is-closing::backdrop { animation: fade-out 0.2s ease-in forwards; }
+.search-panel { transform-origin: top right; animation: panel-in 0.16s ease-out; }
+.toast { animation: toast-in 0.25s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.toast.is-leaving { animation: toast-out 0.25s ease-in forwards; }
+.loading { animation: fade-in 0.3s ease 0.2s backwards; }
+.nav-badge { animation: badge-pulse 2.4s ease-out infinite; }
+
+/* появление страницы при переходе */
+.page-enter { animation: fade-in 0.25s ease-out; }
+html[data-enter] .container > * { animation: fade-up 0.38s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+html[data-enter] .container > :nth-child(2) { animation-delay: 50ms; }
+html[data-enter] .container > :nth-child(3) { animation-delay: 100ms; }
+html[data-enter] .container > :nth-child(4) { animation-delay: 150ms; }
+html[data-enter] .container > :nth-child(5) { animation-delay: 200ms; }
+html[data-enter] .container > :nth-child(6) { animation-delay: 250ms; }
+html[data-enter] .container > :nth-child(n + 7) { animation-delay: 300ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :is(.tcard, .group) { animation: card-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(2) { animation-delay: 35ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(3) { animation-delay: 70ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(4) { animation-delay: 105ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(5) { animation-delay: 140ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(6) { animation-delay: 175ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(7) { animation-delay: 210ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(8) { animation-delay: 245ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(9) { animation-delay: 280ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(10) { animation-delay: 315ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(11) { animation-delay: 350ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(12) { animation-delay: 385ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(13) { animation-delay: 420ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(14) { animation-delay: 455ms; }
+:is(html[data-enter] .grid, .is-entering .grid) > :nth-child(n + 15) { animation-delay: 490ms; }
+
+/* переход между связанными тайтлами в окне */
+.dialog-body.is-leaving { animation: fade-out 0.14s ease-in forwards; }
+.dialog-body.is-entering > * { animation: fade-up 0.34s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+.dialog-body.is-entering > :nth-child(2) { animation-delay: 45ms; }
+.dialog-body.is-entering > :nth-child(3) { animation-delay: 90ms; }
+.dialog-body.is-entering > :nth-child(4) { animation-delay: 135ms; }
+.dialog-body.is-entering > :nth-child(n + 5) { animation-delay: 180ms; }
+
+/* смена фильтра: список выезжает заново */
+.is-entering .result-count, .is-entering .day-title, .is-entering .empty { animation: fade-up 0.3s cubic-bezier(0.2, 0.7, 0.2, 1) backwards; }
+.filter-chip[aria-pressed="true"] { animation: chip-pop 0.28s ease-out; }
+
+/* кнопки в шапке карточки тайтла */
+.dialog-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 4px; }
+.watch-online { text-decoration: none; }

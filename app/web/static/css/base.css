@@ -1,0 +1,86 @@
+/* Аниме-календарь: тёмная тема по умолчанию (в духе прототипа). Светлая включается атрибутом data-theme="light" на <html>:
+   его ставит theme-init.js по сохранённому выбору или системной настройке, а кнопка в шапке переключает. */
+
+:root {
+  --gutter: clamp(16px, 3vw, 56px); /* боковые поля растут вместе с экраном */
+  --bg: #14121a;
+  --bg-2: #1b1923;
+  --card: #1e1c26;
+  --card-2: #272433;
+  --text: #f5f0e6;
+  --muted: #a39dac;
+  --border: #302c3b;
+  --primary: #f2a93b;
+  --primary-rgb: 242, 169, 59;
+  --on-primary: #1a1108;
+  --accent: #ff3b81;
+  --good: #34d399;
+  --warn: #f2a93b;
+  --danger: #ff5d78;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  --radius: 14px;
+  --radius-sm: 10px;
+  --topbar-h: 64px;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: #f6f3ee;
+  --bg-2: #ece8e1;
+  --card: #ffffff;
+  --card-2: #f1ede6;
+  --text: #231f2b;
+  --muted: #6c6676;
+  --border: #ddd7cd;
+  --primary: #b86e00;
+  --primary-rgb: 184, 110, 0;
+  --on-primary: #ffffff;
+  --accent: #d11d64;
+  --good: #0f8a5f;
+  --warn: #a35f00;
+  --danger: #c9304c;
+  --shadow: 0 10px 30px rgba(40, 30, 10, 0.12);
+  color-scheme: light;
+}
+
+/* Тонкие полосы прокрутки. WebKit/Blink: размер задаём сами (6 px вместо ~15 px системных); Firefox: стандартные свойства. */
+:root {
+  --scroll-thumb: color-mix(in srgb, var(--muted) 45%, transparent);
+  --scroll-thumb-hover: color-mix(in srgb, var(--muted) 75%, transparent);
+}
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border: 2px solid transparent; border-radius: 999px; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); background-clip: content-box; }
+@supports (-moz-appearance: none) {
+  * { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+a { color: inherit; }
+button, input, select { font: inherit; color: inherit; }
+img { max-width: 100%; display: block; }
+h1, h2, h3, p { margin: 0; }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
+[hidden] { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+
+.skip-link { position: absolute; left: -999px; top: 8px; background: var(--primary); color: var(--on-primary); padding: 8px 12px; border-radius: 8px; z-index: 100; }
+.skip-link:focus { left: 8px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
