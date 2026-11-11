@@ -11,7 +11,7 @@ from app import seasons
 from app.ratelimit import limiter
 from app.seasons import SEASON_RU
 from app.services import dto
-from app.services.catalog import NotFound
+from app.services.errors import NotFound
 from app.services.studios import MAX_PAGE
 
 from .deps import CatalogDep, YummyDep

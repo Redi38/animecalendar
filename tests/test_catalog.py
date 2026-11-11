@@ -4,7 +4,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.providers.anilist import AniListError
-from app.services.catalog import Catalog, NotFound
+from app.services.catalog import Catalog
+from app.services.errors import NotFound
 from app.services.related_service import RELATIONS_TTL_ACTIVE
 from tests.fakes import BASE_ID
 
