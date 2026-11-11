@@ -3,7 +3,7 @@ import { store } from "../store.js";
 import { fill, h } from "../util.js";
 import { closeDialogAnimated, fadeOut, reducedMotion } from "./motion.js";
 import { titleBody, upgradeWatchLink } from "./titlebody.js";
-import { closeMenus, titleMenu } from "./titlemenu.js";
+import { titleMenu } from "./titlemenu.js";
 
 export { setWatchTemplate } from "./titlebody.js";
 
@@ -43,10 +43,7 @@ export function openTitleDialog(id, onClose, { onRename, onIgnore, onRestore } =
     pressedOnBackdrop = event.target === dialog;
   };
   dialog.onclick = (event) => {
-    if (event.target === dialog) {
-      if (pressedOnBackdrop) closeDialogAnimated(dialog);
-    }
-    else if (!event.target.closest?.(".dialog-menu")) closeMenus(dialog);
+    if (event.target === dialog && pressedOnBackdrop) closeDialogAnimated(dialog);
     pressedOnBackdrop = false;
   };
 

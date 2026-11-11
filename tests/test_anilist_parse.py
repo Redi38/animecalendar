@@ -1,6 +1,6 @@
 import json
 
-from app.providers.anilist import parse_media, parse_relations
+from app.providers.anilist_parse import parse_media, parse_relations
 
 MEDIA = {
     "id": 1,
@@ -80,7 +80,7 @@ def test_parse_relations_allow_adult_keeps_adult_anime():
 
 
 def test_adult_queries_drop_only_the_filter():
-    from app.providers.anilist import Q_BY_MAL_IDS, Q_BY_MAL_IDS_ADULT, Q_SEARCH, Q_SEARCH_ADULT
+    from app.providers.anilist_queries import Q_BY_MAL_IDS, Q_BY_MAL_IDS_ADULT, Q_SEARCH, Q_SEARCH_ADULT
 
     for plain, adult in ((Q_BY_MAL_IDS, Q_BY_MAL_IDS_ADULT), (Q_SEARCH, Q_SEARCH_ADULT)):
         assert "isAdult: false" in plain
@@ -88,7 +88,7 @@ def test_adult_queries_drop_only_the_filter():
 
 
 def test_is_tba_needs_neither_season_year_nor_start_year():
-    from app.providers.anilist import is_tba
+    from app.providers.anilist_parse import is_tba
 
     assert is_tba({"seasonYear": None, "startDate": {"year": None, "month": None, "day": None}})
     assert is_tba({})

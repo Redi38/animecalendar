@@ -12,7 +12,7 @@ from datetime import UTC, date, datetime
 from typing import Any
 
 from app.db import Database
-from app.providers.anilist import parse_media, parse_relations
+from app.providers.anilist_parse import parse_media, parse_relations
 from app.providers.ports import AniListPort, ShikimoriPort
 
 logger = logging.getLogger(__name__)

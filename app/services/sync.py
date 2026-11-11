@@ -8,7 +8,8 @@ from collections import defaultdict
 from collections.abc import Callable, Coroutine
 from typing import Any
 
-from app.providers.anilist import AniListError, is_tba
+from app.providers.anilist import AniListError
+from app.providers.anilist_parse import is_tba
 from app.seasons import season_of, shift, ttl_seconds
 from app.services.ingest import Ingest
 

@@ -10,7 +10,8 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from app.providers.anilist import AniListError, parse_list_nodes
+from app.providers.anilist import AniListError
+from app.providers.anilist_parse import parse_list_nodes
 from app.services.ingest import Ingest
 
 logger = logging.getLogger(__name__)

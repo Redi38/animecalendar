@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from app.json_util import dumps, loads_studios
-from app.providers.anilist import parse_list_nodes
+from app.providers.anilist_parse import parse_list_nodes
 from app.services.studios import STUDIO_TTL
 from tests.conftest import Clock, CountingAniList
 from tests.fakes import BASE_ID, FRANCHISES, studio_id
