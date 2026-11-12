@@ -26,6 +26,9 @@
 
 /* карточки */
 .tcard { transition: transform 0.22s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.22s ease, border-color 0.2s ease; }
+/* Карточки всегда в своём слое. Иначе после анимации появления браузер перерисовывает их в обычном слое, где позиции
+   не округляются так же (колонки сетки дробные), и часть карточек сдвигается на 1px. */
+.tcard, .group { will-change: transform; }
 .cover img { transition: transform 0.4s ease, opacity 0.25s ease; }
 .tcard:hover .cover img { transform: scale(1.05); }
 .tcard:active { transform: translateY(-1px) scale(0.99); }

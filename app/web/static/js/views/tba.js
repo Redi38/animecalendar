@@ -3,7 +3,7 @@ import { titleCard } from "../ui/card.js";
 import { createLoader } from "../loader.js";
 import { replayEnter } from "../ui/motion.js";
 import { debounce, fill, formatTitles, h, normalize } from "../util.js";
-import { tbaTab } from "./season.js";
+import { tbaTab } from "../ui/seasonnav.js";
 
 /** Анонсы, у которых студия ещё не назвала ни сезон, ни дату выхода. */
 export function renderTba(root, ctx, isCurrent) {

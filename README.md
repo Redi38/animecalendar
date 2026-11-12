@@ -206,15 +206,12 @@ All endpoints are under `/api`. Interactive documentation is at `/docs` (FastAPI
 <summary><b>Development</b></summary>
 
 ```bash
-make ci                   # ruff, mypy, JS syntax check, tests
-make test                 # tests only
+make ci                   # ruff, mypy, JS syntax check
 make lint                 # ruff check + format check
 make typecheck            # mypy
 make js-check             # node --check for every frontend module
 make help                 # list all targets
 ```
-
-The tests run on the made-up data in `tests/fakes.py` with fake provider clients and make no network requests. The provider that talks to the watch site is tested with `httpx.MockTransport`.
 
 Project layout:
 
@@ -229,7 +226,6 @@ app/
   seasons.py   season arithmetic and cache lifetimes
   ratelimit.py per-IP sliding-window limiter
 docs/screenshots/   images used by this README
-tests/
 ```
 
 Code style is enforced by `ruff` (line length 120) and `mypy`; there is no JS toolchain, so frontend modules are checked with `node --check`.

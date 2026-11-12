@@ -1,33 +1,15 @@
 import { api } from "../api.js";
-import { parseListFile, resolveTitles } from "../importer.js";
 import { titleCard } from "../ui/card.js";
 import { groupSection } from "../ui/group.js";
 import { arrangeByFranchise } from "../groups.js";
 import { toast } from "../ui/toast.js";
-import { confirmDialog } from "../ui/confirm.js";
 import { createLoader, loadingBox } from "../loader.js";
 import { errorBox } from "../ui/error.js";
-import { dropdown } from "../ui/dropdown.js";
-import { listMenu } from "../ui/listmenu.js";
 import { replayEnter } from "../ui/motion.js";
-import { storageGet, storageSet } from "../storage.js";
-import { clear, download, fill, formatTitles, h, plural } from "../util.js";
-
-const SORT_KEY = "anime_calendar_watched_sort_v1";
-const SORTS = [
-  { id: "alpha", label: "По алфавиту" },
-  { id: "added", label: "По порядку добавления" },
-  { id: "franchise", label: "По тайтлам" },
-];
-
-function loadSort() {
-  const v = storageGet(SORT_KEY);
-  return SORTS.some((x) => x.id === v) ? v : "alpha";
-}
-
-function saveSort(v) {
-  storageSet(SORT_KEY, v);
-}
+import { loadSort, saveSort, sortItems } from "../watchedsort.js";
+import { createListFile } from "./watched-import.js";
+import { watchedActions } from "./watched-actions.js";
+import { fill, formatTitles, h, plural } from "../util.js";
 
 export function renderWatched(root, ctx, isCurrent) {
   const { store } = ctx;
@@ -35,23 +17,10 @@ export function renderWatched(root, ctx, isCurrent) {
   const status = h("p", { class: "lead", role: "status" });
   const report = h("div", null);
   const loader = createLoader(isCurrent);
-  let importing = false;
   let sort = loadSort();
   let lastLoad = null; // { data, ids } — чтобы менять сортировку без повторного запроса
   let groupsCache = null; // { key, groups } — франшизы для текущего списка, запрашиваются при первой сортировке «По тайтлам»
   const openGroups = new Set(); // раскрытые группы переживают перерисовку списка
-
-  function showReport(summary, failed) {
-    const parts = [h("p", null, summary)];
-    if (failed.length) {
-      parts.push(
-        h("p", null, "Эти тайтлы не добавлены:"),
-        h("ul", null, failed.map((f) => h("li", null, `${f.title}: ${f.reason}`))),
-      );
-    }
-    parts.push(h("button", { type: "button", class: "btn", onclick: () => clear(report) }, "Закрыть"));
-    fill(report, h("div", { class: "notice", role: "alert" }, parts));
-  }
 
   /** Карточка списка; для импортированных тайтлов показываем название из файла, чтобы заметить неверное совпадение. */
   function watchedCard(item) {
@@ -63,100 +32,17 @@ export function renderWatched(root, ctx, isCurrent) {
     return card;
   }
 
-  async function importTitles({ titles, skipped }) {
-    if (importing) return;
-    importing = true;
-    clear(report);
-    try {
-      const { found, failed } = await resolveTitles(
-        titles,
-        (done, total) => {
-          status.textContent = done < total ? `Ищем тайтлы: ${done} из ${total}…` : "";
-        },
-        controller.signal,
-      );
-      store.addImported(found);
-      const inList = new Set(store.ids());
-      for (const f of found) {
-        if (!inList.has(f.id)) failed.push({ title: f.title, reason: "список переполнен, максимум 500 тайтлов" });
-      }
-      const ok = titles.length - failed.length;
-      const extra = skipped ? ` Записей без названия в файле: ${skipped}.` : "";
-      showReport(`Обработано названий: ${titles.length}. В списке: ${ok}, не добавлено: ${failed.length}.${extra}`, failed);
-    } catch (err) {
-      if (err.name !== "AbortError") toast("Не удалось найти тайтлы. Попробуйте позже.", "error");
-    } finally {
-      importing = false;
-      status.textContent = "";
-    }
-  }
-  const fileInput = h("input", {
-    type: "file",
-    accept: "application/json,.json",
-    hidden: true,
-    onchange: async (e) => {
-      const file = e.target.files[0];
-      e.target.value = "";
-      if (!file) return;
-      try {
-        const parsed = parseListFile(JSON.parse(await file.text()));
-        if (parsed.kind === "titles") {
-          toast(`Ищем ${parsed.titles.length} тайтлов по названиям, это займёт пару минут`);
-          importTitles(parsed);
-          return;
-        }
-        const added = store.addMany(parsed.ids);
-        toast(added ? `Добавлено тайтлов: ${added}` : "Новых тайтлов в файле нет");
-      } catch {
-        toast("Не удалось прочитать файл. Нужен JSON, который вы скачали здесь же.", "error");
-      }
+  const listFile = createListFile({ store, status, report, signal: loader.signal });
+  const actions = watchedActions({
+    store,
+    sort,
+    listFile,
+    onSort: (id) => {
+      sort = id;
+      saveSort(sort);
+      if (lastLoad) show().then((shown) => shown && replayEnter(list));
     },
   });
-
-  const actions = h(
-    "div",
-    { class: "toolbar-actions" },
-    dropdown({
-      label: "Сортировка",
-      triggerText: "Сортировка",
-      options: SORTS,
-      value: sort,
-      onChange: (id) => {
-        sort = id;
-        saveSort(sort);
-        if (lastLoad) show().then((shown) => shown && replayEnter(list));
-      },
-    }),
-    listMenu(() => {
-      const items = [{ label: "Загрузить список", run: () => fileInput.click() }];
-      // Пока список пуст, скачивать и очищать нечего: остаётся только загрузка.
-      if (store.size()) {
-        items.unshift({
-          label: "Скачать список",
-          run: () => download("anime-watched.json", JSON.stringify({ watched: store.ids() })),
-        });
-        items.push({
-          label: "Очистить",
-          danger: true,
-          run: async () => {
-            const n = store.size();
-            if (!n) return;
-            const ok = await confirmDialog({
-              title: "Очистить список просмотренного?",
-              text: `Будет удалено ${formatTitles(n)}. Отменить это нельзя, поэтому сначала можно скачать список файлом.`,
-              confirmLabel: "Очистить список",
-              danger: true,
-            });
-            if (!ok) return;
-            store.clear();
-            toast("Список очищен");
-          },
-        });
-      }
-      return items;
-    }),
-    fileInput,
-  );
 
   fill(
     root,
@@ -216,13 +102,7 @@ export function renderWatched(root, ctx, isCurrent) {
 
   function renderList() {
     const { data, ids } = lastLoad;
-    const order = new Map(ids.map((id, i) => [id, i])); // Set хранит порядок добавления
     const franchise = sort === "franchise" && groupsCache?.key === ids.join(",");
-    const items = [...data.items].sort(
-      sort === "added"
-        ? (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)
-        : (a, b) => a.title.localeCompare(b.title, "ru"),
-    );
     const parts = [
       h("p", { class: "result-count" }, formatTitles(ids.length)),
     ];
@@ -245,7 +125,7 @@ export function renderWatched(root, ctx, isCurrent) {
         ),
       );
     } else {
-      parts.push(h("div", { class: "grid" }, items.map(watchedCard)));
+      parts.push(h("div", { class: "grid" }, sortItems(data.items, ids, sort).map(watchedCard)));
     }
     fill(list, ...parts);
   }
