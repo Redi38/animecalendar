@@ -16,6 +16,8 @@ from urllib.parse import quote
 
 import httpx
 
+from app.providers.http import get_json_soft
+
 logger = logging.getLogger(__name__)
 
 HIT_TTL = 24 * 3600
@@ -122,12 +124,10 @@ class YummyClient:
         await self._client.aclose()
 
     async def _search(self, query: str) -> list[Any] | None:
-        try:
-            resp = await self._client.get(f"{self._api}/search", params={"q": query, "limit": 24})
-            resp.raise_for_status()
-            data = resp.json()
-        except (httpx.HTTPError, ValueError) as e:
-            logger.warning("watch: поиск «%s» не удался: %s", query, e)
+        data = await get_json_soft(
+            self._client, f"{self._api}/search", {"q": query, "limit": 24}, label=f"watch: поиск «{query}»"
+        )
+        if data is None:
             return None
         items = data.get("response") if isinstance(data, dict) else None
         return items if isinstance(items, list) else []

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from typing import Any
 
 import httpx
@@ -25,6 +24,7 @@ from app.providers.anilist_queries import (
     Q_STUDIO,
     Q_TBA,
 )
+from app.providers.http import Pacer
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +47,7 @@ class AniListClient:
             timeout=httpx.Timeout(20.0, connect=8.0),
             headers={"User-Agent": user_agent, "Accept": "application/json"},
         )
-        self._pace = asyncio.Lock()
-        self._last_request = 0.0
+        self._pacer = Pacer(MIN_INTERVAL)
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -56,11 +55,7 @@ class AniListClient:
     async def _query(self, query: str, variables: dict[str, Any]) -> dict[str, Any]:
         last_error: Exception | None = None
         for attempt in range(3):
-            async with self._pace:
-                wait = MIN_INTERVAL - (time.monotonic() - self._last_request)
-                if wait > 0:
-                    await asyncio.sleep(wait)
-                self._last_request = time.monotonic()
+            await self._pacer.wait()
             try:
                 resp = await self._client.post(self._url, json={"query": query, "variables": variables})
             except httpx.HTTPError as e:

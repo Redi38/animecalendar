@@ -1,0 +1,13 @@
+/* --- меню действий: «⋯» в карточке и «Управление списком» ---------------------------- */
+.dialog-menu { position: sticky; top: 10px; float: right; margin: 10px 8px 0 0; z-index: 3; }
+.dialog-menu-btn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--border); background: var(--card); color: inherit; font-size: 20px; line-height: 1; cursor: pointer; }
+.dialog-menu-btn:hover { background: var(--card-2); }
+.dialog-menu-list { position: absolute; top: 42px; right: 0; width: max-content; padding: 6px; display: flex; flex-direction: column; background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+.dialog-menu-list[hidden] { display: none; }
+.dialog-menu-item { padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; font-weight: 700; text-align: left; white-space: nowrap; cursor: pointer; }
+.dialog-menu-item:hover, .dialog-menu-item:focus-visible { background: var(--card-2); }
+.dialog-menu-item.is-danger { color: var(--danger); }
+.list-menu { position: relative; }
+.list-menu .btn[aria-expanded="true"] .dropdown-chevron { transform: translateY(2px) rotate(225deg); border-color: var(--primary); }
+.list-menu-list { position: absolute; top: calc(100% + 6px); left: 0; z-index: 5; width: max-content; padding: 6px; display: flex; flex-direction: column; background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow); }
+.list-menu-list[hidden] { display: none; }

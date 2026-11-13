@@ -1,0 +1,10 @@
+/* --- окно синхронизации с Google Drive (поверх стилей окна подтверждения) ------------- */
+.sync-icon.is-idle { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+.sync-icon.is-needs-login, .sync-icon.is-error { background: color-mix(in srgb, var(--warn) 16%, transparent); color: var(--warn); }
+.sync-dialog { width: min(460px, calc(100vw - 24px)); }
+.sync-dialog .confirm-actions .btn { white-space: nowrap; }
+.sync-dialog .dialog-close { position: absolute; top: 10px; right: 10px; float: none; margin: 0; }
+.sync-warn { color: var(--warn); font-weight: 700; }
+.sync-facts { display: flex; flex-direction: column; gap: 2px; }
+.sync-off { width: 100%; }
+.confirm-actions .btn[disabled], .sync-off[disabled] { opacity: 0.5; pointer-events: none; }

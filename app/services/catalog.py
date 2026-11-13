@@ -20,13 +20,11 @@ from typing import Any
 
 from app.db import Database
 from app.providers.ports import AniListPort, ShikimoriPort
-from app.services import dto
-from app.services.errors import NotFound
 from app.services.franchises import FranchiseService
 from app.services.ingest import Ingest
 from app.services.related_service import RelatedService
 from app.services.search import SearchService
-from app.services.studios import StudioNotFound, StudioService
+from app.services.studios import StudioService
 from app.services.sync import SyncService
 from app.services.titles import TitleService
 
@@ -103,19 +101,7 @@ class Catalog:
 
     async def studio(self, studio_id: int, page: int) -> dict[str, Any]:
         """Страница тайтлов студии. NotFound, если такой студии нет."""
-        try:
-            result = await self._studios.page(studio_id, page)
-        except StudioNotFound:
-            raise NotFound(studio_id) from None
-        now = self.now()
-        return {
-            "id": result.id,
-            "name": result.name,
-            "page": page,
-            "has_next": result.has_next,
-            "synced_at": result.synced_at,
-            "items": [dto.card(r, now=now) for r in result.items],
-        }
+        return await self._studios.view(studio_id, page)
 
     # --- карточки --------------------------------------------------------------
 

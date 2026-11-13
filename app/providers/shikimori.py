@@ -10,16 +10,12 @@ ID тайтлов на Shikimori совпадают с ID на MyAnimeList (по
 
 from __future__ import annotations
 
-import asyncio
-import logging
-import time
 from typing import Any
 
 import httpx
 
 from app.i18n import bbcode_text, plain_text
-
-logger = logging.getLogger(__name__)
+from app.providers.http import Pacer, get_json_soft
 
 BATCH = 50  # максимум для limit в /api/animes
 MIN_INTERVAL = 0.7  # ~85 запросов в минуту
@@ -44,8 +40,7 @@ class ShikimoriClient:
             headers={"User-Agent": user_agent, "Accept": "application/json"},
             follow_redirects=True,
         )
-        self._pace = asyncio.Lock()
-        self._last_request = 0.0
+        self._pacer = Pacer(MIN_INTERVAL)
 
     async def aclose(self) -> None:
         await self._client.aclose()
@@ -53,21 +48,8 @@ class ShikimoriClient:
     async def _get(self, path: str, params: dict[str, Any]) -> Any | None:
         if not self.enabled:
             return None
-        async with self._pace:
-            wait = MIN_INTERVAL - (time.monotonic() - self._last_request)
-            if wait > 0:
-                await asyncio.sleep(wait)
-            self._last_request = time.monotonic()
-        try:
-            resp = await self._client.get(f"{self._base}{path}", params=params)
-            if resp.status_code == 429:
-                logger.warning("shikimori: 429, пропускаем запрос %s", path)
-                return None
-            resp.raise_for_status()
-            return resp.json()
-        except (httpx.HTTPError, ValueError) as e:
-            logger.warning("shikimori: %s не удался: %s", path, e)
-            return None
+        await self._pacer.wait()
+        return await get_json_soft(self._client, f"{self._base}{path}", params, label=f"shikimori: {path}")
 
     async def russian_names(self, mal_ids: list[int]) -> tuple[dict[int, str], set[int]]:
         """Русские названия по MAL ID.

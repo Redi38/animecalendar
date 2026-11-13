@@ -1,0 +1,10 @@
+/* --- окно выбора тайтла для замены --------------------------------------------------- */
+.replace-dialog { width: min(520px, calc(100vw - 24px)); }
+.pick-body { padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+.pick-body h2 { font-size: 20px; font-weight: 800; line-height: 1.25; }
+.pick-input { width: 100%; padding: 10px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; }
+.pick-input:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.pick-list { display: flex; flex-direction: column; gap: 2px; max-height: min(52vh, 420px); overflow-y: auto; }
+.pick-row { display: flex; align-items: center; gap: 10px; width: 100%; padding: 6px; border: 0; border-radius: var(--radius-sm); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.pick-row:hover, .pick-row:focus-visible { background: var(--card-2); }
+@media (max-width: 420px) { .confirm-actions { flex-direction: column-reverse; } }

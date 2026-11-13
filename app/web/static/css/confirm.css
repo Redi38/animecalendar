@@ -1,0 +1,10 @@
+/* Окно подтверждения (очистка списка просмотренного и т. п.) */
+.confirm-dialog { width: min(420px, calc(100vw - 24px)); }
+.confirm-dialog.is-danger { border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+.confirm-body { padding: 26px 24px 22px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; }
+.confirm-icon { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; font-size: 26px; font-weight: 800; background: color-mix(in srgb, var(--primary) 16%, transparent); color: var(--primary); }
+.is-danger .confirm-icon { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
+.confirm-body h2 { font-size: 20px; font-weight: 800; line-height: 1.25; }
+.confirm-text { color: var(--muted); font-size: 14px; line-height: 1.5; }
+.confirm-actions { display: flex; gap: 10px; margin-top: 8px; width: 100%; }
+.confirm-actions .btn { flex: 1; }

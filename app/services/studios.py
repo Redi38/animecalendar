@@ -12,6 +12,8 @@ from typing import Any
 
 from app.providers.anilist import AniListError
 from app.providers.anilist_parse import parse_list_nodes
+from app.services import dto
+from app.services.errors import NotFound
 from app.services.ingest import Ingest
 
 logger = logging.getLogger(__name__)
@@ -20,8 +22,8 @@ STUDIO_TTL = 7 * 86400
 MAX_PAGE = 40  # 2000 тайтлов: больше у одной студии не бывает, а запросы за край страниц отсекаем
 
 
-class StudioNotFound(Exception):
-    pass
+class StudioNotFound(NotFound):
+    """Такой студии нет у AniList."""
 
 
 @dataclass
@@ -41,6 +43,19 @@ class StudioService:
     def __init__(self, ingest: Ingest) -> None:
         self.ingest = ingest
         self.db = ingest.db
+
+    async def view(self, studio_id: int, page: int) -> dict[str, Any]:
+        """Страница студии в виде ответа API: карточки тайтлов и признак следующей страницы."""
+        result = await self.page(studio_id, page)
+        now = self.ingest.now()
+        return {
+            "id": result.id,
+            "name": result.name,
+            "page": page,
+            "has_next": result.has_next,
+            "synced_at": result.synced_at,
+            "items": [dto.card(r, now=now) for r in result.items],
+        }
 
     async def page(self, studio_id: int, page: int) -> StudioPage:
         now = self.ingest.now()
