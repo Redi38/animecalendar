@@ -94,6 +94,13 @@ def _clear_cookie(response: Response) -> None:
     response.delete_cookie(COOKIE, path=COOKIE_PATH)
 
 
+def _login_required() -> JSONResponse:
+    """401 и стёртая кука: доступа нет или он отозван, браузеру нужно войти заново."""
+    response = JSONResponse({"detail": "Нужно войти в Google заново."}, status_code=401)
+    _clear_cookie(response)
+    return response
+
+
 def _refresh_from_cookie(request: Request) -> str | None:
     raw = request.cookies.get(COOKIE)
     if not raw:
@@ -143,14 +150,12 @@ async def connect(body: CodeIn, request: Request) -> JSONResponse:
         raise HTTPException(400, "Не дан доступ к папке приложения на Google Диске.")
     token, expires = _access(data)
     refresh = data.get("refresh_token")
-    persistent = isinstance(refresh, str) and bool(refresh)
+    got_refresh = isinstance(refresh, str) and bool(refresh)
+    # Google выдаёт refresh-токен только при первом согласии. Если кука с прошлого раза ещё жива, она работает.
+    persistent = got_refresh or _refresh_from_cookie(request) is not None
     response = JSONResponse({"access_token": token, "expires_in": expires, "persistent": persistent})
-    if persistent:
+    if got_refresh:
         _set_cookie(request, response, str(refresh))
-    else:
-        # Google выдаёт refresh-токен только при первом согласии. Если кука с прошлого раза ещё жива, она работает.
-        persistent = _refresh_from_cookie(request) is not None
-        response = JSONResponse({"access_token": token, "expires_in": expires, "persistent": persistent})
     return response
 
 
@@ -159,9 +164,7 @@ async def token(request: Request) -> JSONResponse:
     """Свежий access-токен по куке. 401: куки нет или доступ отозван, нужно войти заново."""
     refresh = _refresh_from_cookie(request)
     if refresh is None:
-        response = JSONResponse({"detail": "Нужно войти в Google заново."}, status_code=401)
-        _clear_cookie(response)
-        return response
+        return _login_required()
     state = request.app.state
     res = await _google(
         request,
@@ -176,9 +179,7 @@ async def token(request: Request) -> JSONResponse:
     data = _json(res)
     if res.status_code != 200:
         if data.get("error") == "invalid_grant":  # доступ отозван в настройках Google или токен устарел
-            response = JSONResponse({"detail": "Нужно войти в Google заново."}, status_code=401)
-            _clear_cookie(response)
-            return response
+            return _login_required()
         logger.warning("google oauth: обновить токен не вышло (%s %s)", res.status_code, data.get("error"))
         raise HTTPException(502, "Google сейчас недоступен. Попробуйте позже.")
     access, expires = _access(data)

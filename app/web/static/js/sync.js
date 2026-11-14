@@ -98,29 +98,31 @@ export function createSync({ store, drive, gis, server = null, readSettings, wri
     }
   }
 
+  /**
+   * Добывает новый токен: тихо по куке, а если её нет — входом в Google, но только когда пользователь сам нажал кнопку
+   * (interactive). Иначе состояние «нужен вход» с пояснением reason. true — токен получен.
+   */
+  async function authorize(interactive, reason = "") {
+    if (await refresh()) return true;
+    if (!interactive) {
+      setStatus("needs-login", reason);
+      return false;
+    }
+    await login();
+    return true;
+  }
+
   async function run(interactive) {
     setStatus("syncing");
     try {
-      if (!tokenValid() && !(await refresh())) {
-        if (!interactive) {
-          setStatus("needs-login");
-          return false;
-        }
-        await login();
-      }
+      if (!tokenValid() && !(await authorize(interactive))) return false;
       try {
         await exchange();
       } catch (err) {
         if (!(err instanceof DriveAuthError)) throw err;
-        settings.token = null;
+        settings.token = null; // Google отклонил токен: берём новый и пробуем обмен ещё раз
         save();
-        if (!(await refresh())) {
-          if (!interactive) {
-            setStatus("needs-login", err.message);
-            return false;
-          }
-          await login();
-        }
+        if (!(await authorize(interactive, err.message))) return false;
         await exchange();
       }
       setStatus("idle");
