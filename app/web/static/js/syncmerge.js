@@ -4,7 +4,7 @@
 // Так видно, кто что убрал: тайтл, который был в base, а в одной из копий пропал, убрали намеренно, и он не воскреснет.
 // Без base (первая синхронизация) копии просто объединяются.
 
-export const LIST_LIMIT = 500; // столько тайтлов принимает API за один запрос
+export const LIST_LIMIT = 5000; // потолок списка, он же в store.js (MAX_WATCHED)
 const SEEN_LIMIT = 5000;
 const TITLE_MAX = 300;
 export const FILE_VERSION = 1;

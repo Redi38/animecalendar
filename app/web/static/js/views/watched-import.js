@@ -1,4 +1,5 @@
 import { parseListFile, resolveTitles } from "../importer.js";
+import { MAX_WATCHED } from "../store.js";
 import { toast } from "../ui/toast.js";
 import { clear, fill, h } from "../util.js";
 
@@ -37,7 +38,7 @@ export function createListFile({ store, status, report, signal }) {
       store.addImported(found);
       const inList = new Set(store.ids());
       for (const f of found) {
-        if (!inList.has(f.id)) failed.push({ title: f.title, reason: "список переполнен, максимум 500 тайтлов" });
+        if (!inList.has(f.id)) failed.push({ title: f.title, reason: "список переполнен, максимум " + MAX_WATCHED + " тайтлов" });
       }
       const ok = titles.length - failed.length;
       const extra = skipped ? ` Записей без названия в файле: ${skipped}.` : "";

@@ -1,3 +1,4 @@
+import { LIST_LIMIT } from "../syncmerge.js";
 import { fill, h } from "../util.js";
 import { closeDialogAnimated } from "./motion.js";
 import { toast } from "./toast.js";
@@ -37,7 +38,7 @@ function explanation(s) {
 function reportResult(sync, ok) {
   if (!ok) return;
   const { applied, uploaded, truncated } = sync.state().result;
-  if (truncated) toast("Список не поместился в 500 тайтлов, лишнее не сохранено.", "error");
+  if (truncated) toast(`Список не поместился в ${LIST_LIMIT} тайтлов, лишнее не сохранено.`, "error");
   toast(applied ? "Список обновлён из Google Диска" : uploaded ? "Список сохранён на Google Диске" : "Всё уже синхронизировано");
 }
 

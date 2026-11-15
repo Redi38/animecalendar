@@ -22,7 +22,15 @@ TitleId = Annotated[int, Field(gt=0, lt=2**31)]
 
 
 class IdsBody(BaseModel):
+    """Пачка ID для /titles: карточки отдаём не больше 500 за запрос, длинный список клиент режет на пачки."""
+
     ids: list[TitleId] = Field(max_length=500)
+
+
+class ListBody(BaseModel):
+    """Весь список просмотренного для /groups и /related: им нужен он целиком, а не пачками."""
+
+    ids: list[TitleId] = Field(max_length=5000)
 
 
 def watch_template(raw: str) -> str:
@@ -117,17 +125,17 @@ async def search(
     return {"query": q.strip(), "items": items, "groups": groups}
 
 
-@router.post("/titles", dependencies=[Depends(limiter(30))])
+@router.post("/titles", dependencies=[Depends(limiter(60))])
 async def titles(body: IdsBody, catalog: CatalogDep) -> dict:
     items, missing = await catalog.titles_by_ids(body.ids)
     return {"items": items, "missing": missing}
 
 
 @router.post("/groups", dependencies=[Depends(limiter(30))])
-async def groups(body: IdsBody, catalog: CatalogDep) -> dict:
+async def groups(body: ListBody, catalog: CatalogDep) -> dict:
     return {"groups": await catalog.groups(body.ids)}
 
 
 @router.post("/related", dependencies=[Depends(limiter(20))])
-async def related(body: IdsBody, catalog: CatalogDep) -> dict:
+async def related(body: ListBody, catalog: CatalogDep) -> dict:
     return await catalog.related(body.ids)

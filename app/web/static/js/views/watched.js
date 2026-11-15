@@ -11,6 +11,8 @@ import { createListFile } from "./watched-import.js";
 import { watchedActions } from "./watched-actions.js";
 import { fill, formatTitles, h, plural } from "../util.js";
 
+const PAGE_SIZE = 60; // карточек за один показ: тысяча постеров разом тормозит страницу
+
 export function renderWatched(root, ctx, isCurrent) {
   const { store } = ctx;
   const list = h("div", null);
@@ -21,6 +23,8 @@ export function renderWatched(root, ctx, isCurrent) {
   let lastLoad = null; // { data, ids } — чтобы менять сортировку без повторного запроса
   let groupsCache = null; // { key, groups } — франшизы для текущего списка, запрашиваются при первой сортировке «По тайтлам»
   const openGroups = new Set(); // раскрытые группы переживают перерисовку списка
+  let shown = PAGE_SIZE; // сколько карточек уже показано; растёт по мере прокрутки
+  let observer = null; // следит за кнопкой «Показать ещё» и подгружает следующую порцию
 
   /** Карточка списка; для импортированных тайтлов показываем название из файла, чтобы заметить неверное совпадение. */
   function watchedCard(item) {
@@ -40,6 +44,7 @@ export function renderWatched(root, ctx, isCurrent) {
     onSort: (id) => {
       sort = id;
       saveSort(sort);
+      shown = PAGE_SIZE;
       if (lastLoad) show().then((shown) => shown && replayEnter(list));
     },
   });
@@ -100,7 +105,33 @@ export function renderWatched(root, ctx, isCurrent) {
     return true;
   }
 
+  /** Кладёт в сетку карточки порциями: следующая подгружается, когда кнопка «Показать ещё» попадает в поле зрения. */
+  function mountPaged(grid, more, makers) {
+    let drawn = 0;
+    const draw = () => {
+      const end = Math.min(makers.length, Math.max(drawn + PAGE_SIZE, shown));
+      grid.append(...makers.slice(drawn, end).map((make) => make()));
+      drawn = end;
+      shown = end;
+      const left = makers.length - drawn;
+      if (!left) {
+        observer?.disconnect();
+        more.remove();
+        return;
+      }
+      btn.textContent = `Показать ещё (${left})`;
+    };
+    const btn = h("button", { class: "btn", type: "button", onclick: draw }, "");
+    more.append(btn);
+    if ("IntersectionObserver" in window) {
+      observer = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && draw(), { rootMargin: "800px" });
+      observer.observe(btn);
+    }
+    draw();
+  }
+
   function renderList() {
+    observer?.disconnect();
     const { data, ids } = lastLoad;
     const franchise = sort === "franchise" && groupsCache?.key === ids.join(",");
     const parts = [
@@ -115,19 +146,14 @@ export function renderWatched(root, ctx, isCurrent) {
         ),
       );
     }
-    if (franchise) {
-      const entries = arrangeByFranchise(data.items, groupsCache.groups);
-      parts.push(
-        h(
-          "div",
-          { class: "grid" },
-          entries.map((e) => (e.kind === "group" ? franchiseGroup(e) : watchedCard(e.item))),
-        ),
-      );
-    } else {
-      parts.push(h("div", { class: "grid" }, sortItems(data.items, ids, sort).map(watchedCard)));
-    }
+    const grid = h("div", { class: "grid" });
+    const more = h("div", { class: "load-more" });
+    const makers = franchise
+      ? arrangeByFranchise(data.items, groupsCache.groups).map((e) => () => (e.kind === "group" ? franchiseGroup(e) : watchedCard(e.item)))
+      : sortItems(data.items, ids, sort).map((item) => () => watchedCard(item));
+    parts.push(grid, more);
     fill(list, ...parts);
+    mountPaged(grid, more, makers);
   }
 
   async function paint() {
@@ -178,6 +204,7 @@ export function renderWatched(root, ctx, isCurrent) {
   return {
     cleanup: () => {
       loader.abort();
+      observer?.disconnect();
       unsubscribe();
     },
   };

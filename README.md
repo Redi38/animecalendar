@@ -103,7 +103,7 @@ Sync runs entirely in the browser: the server stores nothing and only passes the
 
 Notes:
 
-- Merging is three-way: an item added on any device is kept, an item removed on one device is removed everywhere, and the first sync of a new device is a union. Each list is capped at 500 titles.
+- Merging is three-way: an item added on any device is kept, an item removed on one device is removed everywhere, and the first sync of a new device is a union. Each list is capped at 5000 titles.
 - Without a client secret (see below) the access token lives about an hour, is kept in the browser's localStorage, and when it expires the button asks you to sign in again. "Отключить" revokes it and stops syncing, local data stays.
 - **Sign in once (recommended).** Google's browser-only sign-in cannot renew a token, hence the hourly prompt. To sign in only once, put the client's secret (Credentials, your OAuth client, "Client secret") into `.env` as `GOOGLE_CLIENT_SECRET=...` and restart (with Docker, rebuild: `docker compose up -d --build`, a new dependency `cryptography` is installed). The server then exchanges the sign-in code for a long-lived refresh token and keeps it in an encrypted, HttpOnly, `Secure` cookie of that browser (the key is derived from the secret). The server stores nothing itself: no users, no database rows. Only the page's own requests are accepted (`/api/google/*` need a custom header), and the browser never sees the refresh token. Notes: the cookie lives up to 400 days and sign-in is per browser; clearing cookies means signing in once again; "Отключить" revokes the grant and deletes the cookie; changing the secret invalidates all cookies. Google issues a refresh token only on the first consent, so if the dialog says no lasting access was granted, remove the app at [myaccount.google.com/permissions](https://myaccount.google.com/permissions) and connect again. In "Testing" mode Google expires the refresh token after 7 days; to avoid that, publish the app (needs a home page and privacy policy URL on a domain you own).
 - While the OAuth app is in "Testing" mode, only accounts listed as test users can sign in.
@@ -195,7 +195,7 @@ All endpoints are under `/api`. Interactive documentation is at `/docs` (FastAPI
 | `GET /api/studio/{id}?page=` | Titles of a studio (main studio only, no music clips), newest first, 40 per page at most. Cached in SQLite for 7 days; an outage serves the stale copy. 30 requests per minute. |
 | `GET /api/title/{id}/watch` | Exact page of the title on the watch site (`{"url": ...}` or `null`). 30 requests per minute. |
 | `GET /api/search?q=...&deep=` | Search by title; `deep=true` also asks AniList/Shikimori. Besides `items` it returns `groups`: franchises of the found titles with all their members, shown before the titles themselves. 60 requests per minute. |
-| `POST /api/titles` | Cards by a list of IDs (`{"ids": [...]}`, up to 500). 30 requests per minute. |
+| `POST /api/titles` | Cards by a list of IDs (`{"ids": [...]}`, up to 500; the site requests longer lists in batches of 500). 60 requests per minute. |
 | `POST /api/groups` | Franchise groups for watched IDs (two or more titles of one franchise; `seeds` are your IDs, `total` is the whole franchise). 30 requests per minute. |
 | `POST /api/related` | Related announcements for watched IDs. Returns `items`, `linked`, `degraded` and `incomplete`. Rate limited per IP. |
 | `GET /healthz` | Health check used by Docker. |
@@ -248,7 +248,7 @@ Code style is enforced by `ruff` (line length 120) and `mypy`; there is no JS to
 <details>
 <summary><b>Limitations</b></summary>
 
-- The watched list holds at most 500 titles (the limit of a single API request).
+- The watched list holds at most 5000 titles. `/api/titles` takes 500 IDs per request, so the site loads a long list in batches and draws the cards a screenful at a time while you scroll.
 - There are no accounts: the list lives in the browser. Moving it between devices is done with a file.
 - The episode schedule ("Серия N — через …", episode N in ...) comes from AniList and exists only for airing titles.
 - The external APIs were unreachable from the sandbox where the project was written, so the integration with live AniList, Shikimori and the watch site was checked against their documentation and on fixtures, not live. Before publishing, run `make run` once on a machine with internet access and open the current season.

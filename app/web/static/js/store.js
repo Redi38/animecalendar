@@ -4,7 +4,7 @@
 import { readJson, writeJson } from "./storage.js";
 
 const KEY = "anime_calendar_v1";
-export const MAX_WATCHED = 500; // столько ID принимает API за один запрос
+export const MAX_WATCHED = 5000; // потолок списка; карточки с сервера берутся пачками по 500
 
 let watched = new Set();
 let ignored = new Set(); // тайтлы, скрытые из «Моих анонсов» (их можно вернуть на странице «Скрытые тайтлы»)
