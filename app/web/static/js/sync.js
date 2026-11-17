@@ -77,7 +77,7 @@ export function createSync({ store, drive, gis, server = null, readSettings, wri
     if (applied) store.applyMerged(state);
     const uploaded = remote.id === null || !remoteState || !sameState(state, remoteState);
     if (uploaded) await drive.write(token, remote.id, toFile(state, new Date(now())));
-    settings.base = { watched: state.watched, ignored: state.ignored };
+    settings.base = { watched: state.watched, planned: state.planned, ignored: state.ignored };
     settings.last = now();
     save();
     lastResult = { applied, uploaded, truncated };

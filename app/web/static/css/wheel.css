@@ -11,16 +11,25 @@
 .wheel-spin:disabled { opacity: 0.5; cursor: not-allowed; }
 .wheel-result { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 64px; text-align: center; }
 .wheel-result-label { color: var(--muted); font-size: 14px; }
-.wheel-result-name { font-size: clamp(22px, 4vw, 30px); font-weight: 800; color: var(--primary); overflow-wrap: anywhere; }
+.wheel-result-name { text-decoration: none; font-size: clamp(22px, 4vw, 30px); font-weight: 800; color: var(--primary); overflow-wrap: anywhere; }
 .wheel-result-note { color: var(--muted); font-size: 13px; }
 
 .wheel-side { display: flex; flex-direction: column; gap: 10px; }
-.wheel-input { width: 100%; resize: vertical; padding: 10px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--card); color: var(--text); font: inherit; }
-.wheel-input:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.wheel-modes { display: flex; flex-wrap: wrap; gap: 8px; }
+.wheel-mode[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); border-color: transparent; }
+.wheel-mode:disabled { opacity: 0.6; cursor: not-allowed; }
+.wheel-custom[hidden], .wheel-opt[hidden], .wheel-add-row .btn[hidden] { display: none; }
+.wheel-suggest { display: flex; flex-direction: column; gap: 6px; }
+.wheel-suggest-list { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); padding: 4px; }
+.wheel-suggest-list[hidden] { display: none; }
+.wheel-suggest-list .pick-row:disabled { opacity: 0.55; cursor: default; }
+.wheel-note { color: var(--muted); font-size: 14px; }
+.wheel-note:empty { display: none; }
 .wheel-add-row { display: flex; gap: 8px; }
 .wheel-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; }
-.wheel-item { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); }
-.wheel-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wheel-item { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); }
+.wheel-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
+.wheel-item-name:hover { color: var(--primary); }
 .wheel-item-del { flex: none; font-size: 20px; line-height: 1; }
 .wheel-opt { display: flex; align-items: center; gap: 8px; color: var(--muted); cursor: pointer; }
 

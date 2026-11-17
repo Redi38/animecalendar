@@ -18,6 +18,7 @@ export function parseRoute(hash) {
   if ((m = path.match(/^\/studio\/(\d+)$/))) return { name: "studio", id: Number(m[1]) };
   if (path === "/tba") return { name: "tba" };
   if (path === "/watched") return { name: "watched" };
+  if (path === "/planned") return { name: "planned" };
   if (path === "/wheel") return { name: "wheel" };
   if (path === "/upcoming") return { name: "upcoming" };
   if (path === "/ignored") return { name: "ignored" };

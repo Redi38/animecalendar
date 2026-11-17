@@ -19,12 +19,14 @@ import { renderStudio } from "./views/studio.js";
 import { renderIgnored } from "./views/ignored.js";
 import { renderTba } from "./views/tba.js";
 import { renderUpcoming } from "./views/upcoming.js";
+import { renderPlanned } from "./views/planned.js";
 import { renderWatched } from "./views/watched.js";
 import { renderWheel } from "./views/wheel.js";
 
 const view = document.getElementById("view");
 const badge = document.getElementById("nav-badge");
 const count = document.getElementById("nav-count");
+const plannedCount = document.getElementById("nav-planned");
 
 const related = createRelated({
   store,
@@ -55,6 +57,7 @@ function updateBadge() {
   badge.textContent = fresh > 99 ? "99+" : String(fresh);
   badge.setAttribute("aria-label", `Новых анонсов: ${fresh}`);
   count.textContent = store.size() ? String(store.size()) : "";
+  plannedCount.textContent = store.plannedSize() ? String(store.plannedSize()) : "";
 }
 
 let subscribedKey = related.listKey();
@@ -112,6 +115,7 @@ function showPage(route) {
   else if (route.name === "tba") current = renderTba(view, ctx, isCurrent);
   else if (route.name === "watched") current = renderWatched(view, ctx, isCurrent);
   else if (route.name === "upcoming") current = renderUpcoming(view, ctx, isCurrent);
+  else if (route.name === "planned") current = renderPlanned(view, ctx, isCurrent);
   else if (route.name === "wheel") current = renderWheel(view);
   else if (route.name === "ignored") current = renderIgnored(view, ctx, isCurrent);
   else if (route.name === "studio") current = renderStudio(view, route, ctx, isCurrent);

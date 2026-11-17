@@ -1,7 +1,7 @@
 import { api } from "../api.js";
 import { groupRelations } from "../relations.js";
 import { formatEpisodes, formatStart, h } from "../util.js";
-import { coverEl, statusChip, watchButton } from "./card.js";
+import { coverEl, planButton, statusChip, watchButton } from "./card.js";
 
 let watchTemplate = "";
 let watchExact = false;
@@ -65,6 +65,7 @@ function relationRow(rel) {
         h("span", { class: "rel-meta" }, [rel.format_ru, rel.status_ru, when].filter(Boolean).join(" · ")),
       ),
     ),
+    planButton(rel),
     watchButton(rel),
   );
 }
@@ -107,7 +108,7 @@ export function titleBody(d) {
           d.season_label ? h("span", { class: "chip" }, d.season_label) : null,
           d.score ? h("span", { class: "chip" }, `★ ${d.score}`) : null,
         ),
-        h("div", { class: "dialog-actions" }, watchButton(d, { variant: "text" }), watchOnlineLink(d)),
+        h("div", { class: "dialog-actions" }, watchButton(d, { variant: "text" }), planButton(d, { variant: "text" }), watchOnlineLink(d)),
       ),
     ),
     h(

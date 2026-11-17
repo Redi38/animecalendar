@@ -57,21 +57,26 @@ export function normalize(raw) {
   }
   return {
     watched,
+    planned: cleanIds(raw.planned, LIST_LIMIT),
     ignored: cleanIds(raw.ignored, LIST_LIMIT),
     seen: Array.isArray(raw.seen) ? cleanIds(raw.seen, SEEN_LIMIT) : null,
     imported,
   };
 }
 
-const EMPTY = { watched: [], ignored: [], seen: null, imported: {} };
+const EMPTY = { watched: [], planned: [], ignored: [], seen: null, imported: {} };
 
 /**
- * Слияние всего состояния. base — { watched, ignored } после прошлой синхронизации или null.
+ * Слияние всего состояния. base — { watched, planned, ignored } после прошлой синхронизации или null.
+ * Тайтл, просмотренный на одном устройстве и запланированный на другом, остаётся только в просмотренном.
  * «Новое» (seen) только растёт, поэтому там обычное объединение. Возвращает { state, truncated }.
  */
 export function mergeState(local, remote, base) {
   const r = remote || EMPTY;
   const watched = mergeSets(local.watched, r.watched, base?.watched, LIST_LIMIT);
+  const watchedSet = new Set(watched.ids);
+  const planned = mergeSets(local.planned, r.planned, base?.planned, LIST_LIMIT);
+  planned.ids = planned.ids.filter((id) => !watchedSet.has(id));
   const ignored = mergeSets(local.ignored, r.ignored, base?.ignored, LIST_LIMIT);
   const seen = local.seen === null && r.seen === null ? null : cleanIds([...(r.seen || []), ...(local.seen || [])], SEEN_LIMIT);
   const imported = {};
@@ -79,7 +84,10 @@ export function mergeState(local, remote, base) {
     const title = local.imported?.[id] ?? r.imported?.[id];
     if (title) imported[id] = title;
   }
-  return { state: { watched: watched.ids, ignored: ignored.ids, seen, imported }, truncated: watched.truncated || ignored.truncated };
+  return {
+    state: { watched: watched.ids, planned: planned.ids, ignored: ignored.ids, seen, imported },
+    truncated: watched.truncated || planned.truncated || ignored.truncated,
+  };
 }
 
 const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
@@ -94,7 +102,7 @@ const sameMap = (a, b) => {
 
 /** Совпадают ли состояния. Порядок важен только у просмотренного («по порядку добавления»). */
 export function sameState(a, b) {
-  return sameList(a.watched, b.watched) && sameSet(a.ignored, b.ignored) && sameSet(a.seen, b.seen) && sameMap(a.imported, b.imported);
+  return sameList(a.watched, b.watched) && sameSet(a.planned, b.planned) && sameSet(a.ignored, b.ignored) && sameSet(a.seen, b.seen) && sameMap(a.imported, b.imported);
 }
 
 /** Содержимое файла в облаке. */

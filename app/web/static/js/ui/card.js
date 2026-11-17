@@ -5,6 +5,9 @@ import { toast } from "./toast.js";
 const EYE = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`;
 const CHECK = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
 
+const BOOKMARK = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>`;
+const BOOKMARK_ON = BOOKMARK.replace('fill="none"', 'fill="currentColor"');
+
 function icon(svg) {
   const span = document.createElement("span");
   span.className = "icon";
@@ -29,6 +32,35 @@ export function watchButton(item, { variant = "icon" } = {}) {
   return btn;
 }
 
+/** Кнопка «Хочу посмотреть». У просмотренного тайтла скрыта: он уже в другом списке. Состояние синхронизируется через syncWatchButtons(). */
+export function planButton(item, { variant = "icon" } = {}) {
+  const btn = h("button", {
+    type: "button",
+    class: `watch-btn plan-btn watch-${variant} plan-${variant}`,
+    "data-plan-id": item.id,
+    "data-title": item.title,
+    onclick: (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!store.togglePlanned(item.id)) toast(`В списке может быть не больше ${MAX_WATCHED} тайтлов.`, "error");
+    },
+  });
+  paintPlanButton(btn);
+  return btn;
+}
+
+function paintPlanButton(btn) {
+  const id = Number(btn.dataset.planId);
+  const on = store.isPlanned(id);
+  const name = btn.dataset.title || "";
+  btn.hidden = store.has(id);
+  btn.setAttribute("aria-pressed", on ? "true" : "false");
+  btn.replaceChildren(icon(on ? BOOKMARK_ON : BOOKMARK));
+  if (btn.classList.contains("plan-text")) btn.append(on ? "В списке «Хочу посмотреть»" : "Хочу посмотреть");
+  btn.setAttribute("aria-label", on ? `Убрать из «Хочу посмотреть»: ${name}` : `Добавить в «Хочу посмотреть»: ${name}`);
+  btn.title = on ? "В списке «Хочу посмотреть» — нажмите, чтобы убрать" : "Хочу посмотреть";
+}
+
 function paintWatchButton(btn) {
   const on = store.has(Number(btn.dataset.watchId));
   const variant = btn.classList.contains("watch-text");
@@ -43,6 +75,7 @@ function paintWatchButton(btn) {
 
 export function syncWatchButtons(root = document) {
   for (const btn of root.querySelectorAll("[data-watch-id]")) paintWatchButton(btn);
+  for (const btn of root.querySelectorAll("[data-plan-id]")) paintPlanButton(btn);
 }
 
 function initial(title) {
@@ -94,6 +127,7 @@ export function titleCard(item, opts = {}) {
       ),
     ),
     watchButton(item),
+    planButton(item),
     h(
       "div",
       { class: "tcard-body" },

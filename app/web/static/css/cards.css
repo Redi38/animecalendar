@@ -35,12 +35,17 @@
 .sug .watch-icon { position: static; flex: none; margin-right: 4px; background: var(--card-2); color: var(--text); border-color: var(--border); }
 .sug .watch-icon[aria-pressed="true"] { background: var(--good); color: #05261a; }
 
+.plan-btn[hidden] { display: none; }
+.tcard .plan-icon { right: 48px; }
+.watch-icon.plan-btn[aria-pressed="true"], .rel-row .watch-icon.plan-btn[aria-pressed="true"], .sug .watch-icon.plan-btn[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); }
+.watch-text.plan-btn[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); border-color: transparent; }
+
 .tcard-body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 3px; flex: 1; }
 .tcard-title { font-size: 14.5px; font-weight: 800; line-height: 1.3; }
 .tcard-title a { text-decoration: none; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .tcard-title a:hover { color: var(--primary); }
 .tcard-title a::after { content: ""; position: absolute; inset: 0; z-index: 1; } /* вся карточка кликабельна */
-.watch-icon { z-index: 2; }
+.watch-icon, .plan-icon { z-index: 2; }
 .tcard-sub { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tcard-meta { font-size: 12.5px; color: var(--muted); }
 .tcard-next { font-size: 12.5px; color: var(--good); font-weight: 700; }

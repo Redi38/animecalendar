@@ -1,39 +1,45 @@
+import { api } from "../api.js";
+import { store } from "../store.js";
+import { coverEl } from "../ui/card.js";
+import { titleSuggest } from "../ui/titlesuggest.js";
 import { drawWheel, spinTo } from "../ui/wheelcanvas.js";
 import { playStop, playTick, primeWheelSound } from "../ui/wheelsound.js";
 import { toast } from "../ui/toast.js";
-import { WHEEL_MAX_ITEMS, WHEEL_MAX_LEN, addNames, loadWheel, pickIndex, saveWheel } from "../wheellist.js";
+import { MODES, WHEEL_MAX_ITEMS, WHEEL_PLANNED_MAX, addItem, cleanItem, loadWheel, pickIndex, sample, saveWheel } from "../wheellist.js";
 import { fill, h } from "../util.js";
 
-/** «Рулетка»: пользователь вносит свой список (названия, по одному на строку), колесо выбирает случайное. */
+/**
+ * «Рулетка»: колесо выбирает случайный тайтл. Список — либо свой (тайтлы из поиска по каталогу),
+ * либо автоматически из «Хочу посмотреть».
+ */
 export function renderWheel(root) {
   const state = loadWheel();
   let rotation = 0; // текущий угол колеса, чтобы повторный запуск продолжал с того же места
   let spinning = null; // { cancel } идущего вращения
-  let winner = null; // название, выпавшее в последний раз
+  let winner = null; // последний выпавший тайтл
+  let planned = { status: "idle", items: [], total: 0, error: "" }; // «Хочу посмотреть» для режима planned
+  let plannedRequest = null;
 
   const canvas = h("canvas", { class: "wheel-canvas", "aria-hidden": "true" });
   const pointer = h("div", { class: "wheel-pointer", "aria-hidden": "true" });
   const current = h("p", { class: "wheel-current" });
   const result = h("div", { class: "wheel-result", role: "status", "aria-live": "polite" });
   const spinBtn = h("button", { class: "btn btn-primary wheel-spin", type: "button", onclick: spin }, "Крутить");
-  const input = h("textarea", {
-    class: "wheel-input",
-    rows: "3",
-    maxlength: String(WHEEL_MAX_ITEMS * (WHEEL_MAX_LEN + 1)),
-    placeholder: "Название аниме. Можно вставить сразу несколько, по одному на строку",
-    "aria-label": "Добавить в список рулетки",
-  });
-  const addBtn = h("button", { class: "btn", type: "button", onclick: add }, "Добавить");
+  const suggest = titleSuggest({ onPick: add, isAdded: (id) => state.items.some((x) => x.id === id) });
+  const modeBar = h("div", { class: "wheel-modes", role: "group", "aria-label": "Откуда брать тайтлы" });
+  const customOnly = h("div", { class: "wheel-custom" }, suggest.el);
+  const note = h("p", { class: "wheel-note" });
   const list = h("ul", { class: "wheel-list" });
   const count = h("p", { class: "result-count" });
   const removeBox = h("input", { type: "checkbox", checked: state.removeWinner, onchange: () => setOption("removeWinner", removeBox.checked) });
+  const removeOpt = h("label", { class: "wheel-opt" }, removeBox, "Убирать выпавшее из списка");
   const muteBox = h("input", { type: "checkbox", checked: state.mute, onchange: () => setOption("mute", muteBox.checked) });
   const clearBtn = h("button", { class: "btn btn-danger", type: "button", onclick: clearAll }, "Очистить список");
 
   fill(
     root,
     h("h1", { class: "page-title" }, "Рулетка"),
-    h("p", { class: "lead" }, "Внесите свой список: что посмотреть сегодня или из чего выбрать. Колесо выберет случайное название. Список хранится в этом браузере."),
+    h("p", { class: "lead" }, "Колесо выберет случайный тайтл: из списка, который вы соберёте сами, или из «Хочу посмотреть»."),
     h(
       "div",
       { class: "wheel-layout" },
@@ -41,78 +47,138 @@ export function renderWheel(root) {
       h(
         "div",
         { class: "wheel-side" },
-        input,
-        h("div", { class: "wheel-add-row" }, addBtn, clearBtn),
+        modeBar,
+        customOnly,
+        note,
         count,
         list,
-        h("label", { class: "wheel-opt" }, removeBox, "Убирать выпавшее из списка"),
+        h("div", { class: "wheel-add-row" }, clearBtn),
+        removeOpt,
         h("label", { class: "wheel-opt" }, muteBox, "Без звука"),
       ),
     ),
   );
 
-  input.addEventListener("keydown", (e) => {
-    // Enter добавляет, Shift+Enter переводит строку (для вставки нескольких названий).
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      add();
-    }
-  });
+  /** Тайтлы, которые сейчас на колесе. */
+  const items = () => (state.mode === "planned" ? planned.items : state.items);
 
   function setOption(key, value) {
     state[key] = value;
     saveWheel(state);
   }
 
+  function setMode(mode) {
+    if (spinning || mode === state.mode) return;
+    state.mode = mode;
+    saveWheel(state);
+    resetResult();
+    if (mode === "planned") loadPlanned();
+    repaint();
+  }
+
+  function resetResult() {
+    winner = null;
+    result.replaceChildren();
+  }
+
+  async function loadPlanned() {
+    plannedRequest?.abort();
+    const ids = store.plannedIds();
+    planned = { status: ids.length ? "loading" : "ready", items: [], total: ids.length, error: "" };
+    if (!ids.length) return;
+    const request = new AbortController();
+    plannedRequest = request;
+    repaint();
+    try {
+      const data = await api.titles(ids, request.signal);
+      const all = data.items.map(cleanItem).filter(Boolean);
+      planned = { status: "ready", items: sample(all, WHEEL_PLANNED_MAX, pickIndex), total: all.length, error: "" };
+    } catch (err) {
+      if (err.name === "AbortError") return;
+      planned = { status: "error", items: [], total: ids.length, error: err.message };
+    }
+    if (state.mode === "planned" && !spinning) repaint();
+  }
+
+  function repaintModes() {
+    fill(
+      modeBar,
+      ...Object.entries(MODES).map(([id, label]) =>
+        h("button", { class: "btn wheel-mode", type: "button", "aria-pressed": String(state.mode === id), disabled: Boolean(spinning), onclick: () => setMode(id) }, label),
+      ),
+    );
+  }
+
+  function emptyText() {
+    if (state.mode === "custom") return "Найдите аниме в поле выше и добавьте хотя бы два тайтла, чтобы крутить.";
+    if (planned.status === "loading") return "Загружаем «Хочу посмотреть»…";
+    if (planned.status === "error") return `Не удалось загрузить список: ${planned.error}`;
+    if (!planned.total) return "В «Хочу посмотреть» пока пусто. Отмечайте тайтлы закладкой на карточках, и они появятся здесь.";
+    return "Для рулетки нужно хотя бы два тайтла в «Хочу посмотреть».";
+  }
+
   function repaint(highlight = -1) {
-    drawWheel(canvas, state.items, highlight);
-    const n = state.items.length;
-    count.textContent = n ? `В списке: ${n} из ${WHEEL_MAX_ITEMS}` : "Список пуст";
-    spinBtn.disabled = n < 2 || Boolean(spinning);
-    spinBtn.title = n < 2 ? "Добавьте в список хотя бы два названия" : "";
+    const custom = state.mode === "custom";
+    const shown = items();
+    const n = shown.length;
+    drawWheel(canvas, shown.map((x) => x.title), highlight);
+    repaintModes();
+    customOnly.hidden = !custom;
+    removeOpt.hidden = !custom;
+    clearBtn.hidden = !custom;
     clearBtn.disabled = !n || Boolean(spinning);
-    if (n < 2) current.textContent = "Добавьте хотя бы два названия, чтобы крутить";
+    spinBtn.disabled = n < 2 || Boolean(spinning);
+    spinBtn.title = n < 2 ? "Нужно хотя бы два тайтла" : "";
+    if (custom) {
+      note.textContent = "";
+      count.textContent = n ? `В списке: ${n} из ${WHEEL_MAX_ITEMS}` : "Список пуст";
+    } else {
+      const cut = planned.total > n && n > 0 ? ` В колесе ${n} случайных из ${planned.total}.` : "";
+      note.textContent = `Список берётся из «Хочу посмотреть» автоматически.${cut}`;
+      count.textContent = planned.status === "ready" && planned.total ? `В «Хочу посмотреть»: ${planned.total}` : "";
+    }
+    if (n < 2) current.textContent = emptyText();
     else if (!spinning && !winner) current.textContent = "";
     fill(
       list,
-      ...state.items.map((name, i) =>
+      ...shown.map((item, i) =>
         h(
           "li",
           { class: "wheel-item" },
-          h("span", { class: "wheel-item-name", title: name }, name),
-          h("button", { class: "icon-btn wheel-item-del", type: "button", "aria-label": `Убрать «${name}»`, disabled: Boolean(spinning), onclick: () => remove(i) }, "×"),
+          coverEl(item, "cover cover-xs"),
+          h("a", { class: "wheel-item-name", href: `#/title/${item.id}`, title: item.title }, item.title),
+          custom
+            ? h("button", { class: "icon-btn wheel-item-del", type: "button", "aria-label": `Убрать «${item.title}»`, disabled: Boolean(spinning), onclick: () => remove(i) }, "×")
+            : null,
         ),
       ),
     );
   }
 
-  function commit(highlight = -1) {
+  function commit() {
     saveWheel(state);
-    repaint(highlight);
+    repaint();
   }
 
-  function add() {
-    if (spinning) return;
-    const { items, added, skipped } = addNames(state.items, input.value);
-    if (!added && !input.value.trim()) return;
-    if (!added) {
-      toast(items.length >= WHEEL_MAX_ITEMS ? `В списке может быть не больше ${WHEEL_MAX_ITEMS} названий.` : "Такое название уже есть.", "error");
-      return;
+  /** Вызывается полем поиска: false — тайтл не добавлен (поле оставляет результаты как есть). */
+  function add(item) {
+    if (spinning) return false;
+    const out = addItem(state.items, item);
+    if (out.status === "full") {
+      toast(`В списке может быть не больше ${WHEEL_MAX_ITEMS} тайтлов.`, "error");
+      return false;
     }
-    state.items = items;
-    input.value = "";
-    winner = null;
-    result.replaceChildren();
+    if (out.status !== "added") return false;
+    state.items = out.items;
+    resetResult();
     commit();
-    if (skipped) toast(`Добавлено ${added}, пропущено повторов или лишних: ${skipped}.`);
-    input.focus();
+    return true;
   }
 
   function remove(i) {
     if (spinning) return;
     state.items.splice(i, 1);
-    winner = null;
-    result.replaceChildren();
+    resetResult();
     commit();
   }
 
@@ -120,22 +186,20 @@ export function renderWheel(root) {
     if (spinning || !state.items.length) return;
     if (!window.confirm("Очистить весь список рулетки?")) return;
     state.items = [];
-    winner = null;
-    result.replaceChildren();
+    resetResult();
     commit();
   }
 
   async function spin() {
-    const n = state.items.length;
+    const wheel = [...items()];
+    const n = wheel.length;
     if (n < 2 || spinning) return;
     primeWheelSound();
-    result.replaceChildren();
-    winner = null;
+    resetResult();
     const idx = pickIndex(n);
-    const names = [...state.items];
-    drawWheel(canvas, names); // сбрасываем подсветку прошлого результата
+    drawWheel(canvas, wheel.map((x) => x.title)); // сбрасываем подсветку прошлого результата
     const onCross = (i) => {
-      current.textContent = names[i];
+      current.textContent = wheel[i].title;
       if (!state.mute) playTick();
     };
     spinning = spinTo(canvas, n, idx, { onCross, startDeg: rotation });
@@ -144,27 +208,41 @@ export function renderWheel(root) {
     spinning = null;
     if (end === null) return; // ушли со страницы
     rotation = end;
-    winner = names[idx];
+    winner = wheel[idx];
     if (!state.mute) playStop();
-    current.textContent = winner;
-    drawWheel(canvas, names, idx);
+    current.textContent = winner.title;
     showResult(idx);
     repaint(idx);
   }
 
   function showResult(idx) {
-    const parts = [h("span", { class: "wheel-result-label" }, "Выпало"), h("strong", { class: "wheel-result-name" }, winner)];
-    if (state.removeWinner) {
+    const parts = [
+      h("span", { class: "wheel-result-label" }, "Выпало"),
+      h("a", { class: "wheel-result-name", href: `#/title/${winner.id}` }, winner.title),
+    ];
+    if (state.mode === "custom" && state.removeWinner) {
       state.items.splice(idx, 1);
       saveWheel(state);
       parts.push(h("span", { class: "wheel-result-note" }, "Убрано из списка"));
     }
+    if (state.mode === "planned") {
+      const done = h("button", { class: "btn", type: "button" }, "Отметить просмотренным");
+      done.onclick = () => {
+        if (!store.toggle(winner.id)) return toast("В списке просмотренного слишком много тайтлов.", "error");
+        done.replaceWith(h("span", { class: "wheel-result-note" }, "Перенесено в «Просмотрено»"));
+      };
+      parts.push(done);
+    }
     fill(result, ...parts);
   }
 
+  if (state.mode === "planned") loadPlanned();
   repaint();
 
   return {
-    cleanup: () => spinning?.cancel(),
+    cleanup: () => {
+      spinning?.cancel();
+      plannedRequest?.abort();
+    },
   };
 }

@@ -1,6 +1,6 @@
 import { api } from "../api.js";
 import { clear, debounce, fill, formatStart, h } from "../util.js";
-import { coverEl, watchButton } from "./card.js";
+import { coverEl, planButton, watchButton } from "./card.js";
 import { groupSection } from "./group.js";
 
 /** Поле поиска в шапке: подсказки при наборе, Enter — страница с полными результатами. */
@@ -34,6 +34,7 @@ export function initSearch() {
         coverEl(item, "cover cover-xs"),
         h("span", { class: "sug-text" }, h("span", { class: "sug-title" }, item.title), h("span", { class: "sug-meta" }, meta)),
       ),
+      planButton(item),
       watchButton(item),
     );
   }
