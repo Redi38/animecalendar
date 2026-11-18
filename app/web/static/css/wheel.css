@@ -1,39 +1,89 @@
 /* --- рулетка ------------------------------------------------------------------------- */
 
-.wheel-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 420px); gap: 28px; align-items: start; }
+/* Кнопка звука слева, панель справа (как в Film Roulette); на узком экране они в одной строке над колесом. */
+.wheel-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 420px); grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "stage dock" "stage side"; gap: 16px 28px; align-items: start; }
+.wheel-layout > .wheel-mute-btn { grid-area: stage; justify-self: start; align-self: start; z-index: 2; }
+.wheel-layout > .wheel-dock { grid-area: dock; }
+.wheel-layout > .wheel-stage { grid-area: stage; }
+.wheel-layout > .wheel-side { grid-area: side; }
 .wheel-stage { display: flex; flex-direction: column; align-items: center; gap: 14px; }
-.wheel-holder { position: relative; width: min(100%, 560px); aspect-ratio: 1; }
+.wheel-holder { position: relative; width: var(--wheel-size, min(100%, 560px)); max-width: 100%; aspect-ratio: 1; }
 .wheel-disc { width: 100%; height: 100%; border-radius: 50%; overflow: hidden; box-shadow: var(--shadow); } /* обрезка: повёрнутый canvas иначе раздвигает страницу вширь */
 .wheel-canvas { display: block; width: 100%; height: 100%; will-change: transform; }
 .wheel-pointer { position: absolute; top: -6px; left: 50%; width: 0; height: 0; transform: translateX(-50%); border-left: 14px solid transparent; border-right: 14px solid transparent; border-top: 28px solid var(--primary); filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45)); z-index: 1; }
 .wheel-current { min-height: 1.6em; max-width: 100%; font-size: 18px; font-weight: 700; text-align: center; overflow-wrap: anywhere; color: var(--muted); }
+.wheel-dock { display: flex; flex-direction: column; align-items: stretch; gap: 12px; width: 100%; padding: 14px 18px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg, 16px); box-shadow: var(--shadow); }
+.wheel-dock-toggle { display: flex; align-items: center; gap: 8px; width: 100%; padding: 0; background: none; border: 0; color: var(--text); font: inherit; font-weight: 700; text-align: left; cursor: pointer; }
+.wheel-dock-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; border-radius: 6px; }
+.wheel-dock-heading { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.wheel-dock-summary { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; font-weight: 500; }
+.wheel-dock-chevron { flex: none; transition: transform 0.25s ease; }
+.wheel-dock.open .wheel-dock-chevron { transform: rotate(180deg); }
+.wheel-dock-body { display: grid; grid-template-rows: 0fr; margin-top: -12px; transition: grid-template-rows 0.28s ease, margin-top 0.28s ease; }
+.wheel-dock.open .wheel-dock-body { grid-template-rows: 1fr; margin-top: 0; }
+.wheel-dock-inner { min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 8px; visibility: hidden; transition: visibility 0s 0.28s; }
+.wheel-dock.open .wheel-dock-inner { visibility: visible; transition-delay: 0s; }
+.wheel-dock-caption { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.wheel-dock .wheel-spin { width: 100%; min-width: 0; }
+.segmented { position: relative; display: flex; padding: 3px; background: var(--card-2); border: 1px solid var(--border); border-radius: 999px; }
+.segmented-thumb { position: absolute; top: 3px; bottom: 3px; left: 0; width: 0; border-radius: 999px; background: var(--primary); transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), width 0.4s cubic-bezier(0.4, 0, 0.2, 1); pointer-events: none; }
+.segmented-btn { position: relative; flex: 1; padding: 8px 10px; background: none; border: 0; border-radius: 999px; color: var(--text); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: color 0.2s ease; }
+.segmented-btn.active { color: var(--on-primary); }
+.segmented-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.segmented.is-disabled { opacity: 0.6; }
+.segmented.is-disabled .segmented-btn { cursor: not-allowed; }
+.wheel-mute-btn { display: flex; align-items: center; justify-content: center; flex: none; width: 46px; height: 46px; padding: 0; background: var(--card); border: 1px solid var(--border); border-radius: 999px; color: var(--text); cursor: pointer; transition: border-color 0.15s ease; }
+.wheel-mute-btn svg { width: 23px; height: 23px; display: block; }
+.wheel-mute-btn:hover { border-color: var(--primary); }
+.wheel-mute-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.wheel-mute-btn.muted { color: var(--muted); }
 .wheel-spin { min-width: 180px; padding: 12px 28px; font-size: 18px; }
 .wheel-spin:disabled { opacity: 0.5; cursor: not-allowed; }
-.wheel-result { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 64px; text-align: center; }
-.wheel-result-label { color: var(--muted); font-size: 14px; }
-.wheel-result-name { text-decoration: none; font-size: clamp(22px, 4vw, 30px); font-weight: 800; color: var(--primary); overflow-wrap: anywhere; }
-.wheel-result-note { color: var(--muted); font-size: 13px; }
+.wheel-result { width: 100%; max-width: 520px; min-height: 64px; }
+.wheel-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg, 16px); box-shadow: var(--shadow); overflow: hidden; animation: wheel-card-in 0.28s ease backwards; }
+@keyframes wheel-card-in { from { opacity: 0; transform: translateY(8px); } }
+.wheel-card-head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 16px; background: none; border: 0; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.wheel-card-head:hover { background: var(--card-2); }
+.wheel-card-head:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.wheel-card-text { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.wheel-card-label { color: var(--muted); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+.wheel-card-title { font-size: clamp(18px, 3.4vw, 24px); font-weight: 800; color: var(--primary); overflow-wrap: anywhere; }
+.wheel-card-chevron { flex: none; transition: transform 0.25s ease; }
+.wheel-card.open .wheel-card-chevron { transform: rotate(180deg); }
+.wheel-card-body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.28s ease; }
+.wheel-card.open .wheel-card-body { grid-template-rows: 1fr; }
+.wheel-card-inner { min-height: 0; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 0 16px; visibility: hidden; transition: visibility 0s 0.28s, padding 0.28s ease; }
+.wheel-card.open .wheel-card-inner { visibility: visible; padding: 4px 16px 16px; transition-delay: 0s; }
+.wheel-card-desc { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; max-height: 9em; overflow-y: auto; white-space: pre-line; }
+.wheel-card-note { margin: 0; color: var(--muted); font-size: 14px; }
+.wheel-card-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.wheel-card-actions .watch-text { margin-top: 0; }
 
 .wheel-side { display: flex; flex-direction: column; gap: 10px; }
-.wheel-modes { display: flex; flex-wrap: wrap; gap: 8px; }
-.wheel-mode[aria-pressed="true"] { background: var(--primary); color: var(--on-primary); border-color: transparent; }
-.wheel-mode:disabled { opacity: 0.6; cursor: not-allowed; }
-.wheel-custom[hidden], .wheel-opt[hidden], .wheel-add-row .btn[hidden] { display: none; }
+.wheel-custom[hidden], .wheel-clear[hidden] { display: none; }
 .wheel-suggest { display: flex; flex-direction: column; gap: 6px; }
 .wheel-suggest-list { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); padding: 4px; }
 .wheel-suggest-list[hidden] { display: none; }
 .wheel-suggest-list .pick-row:disabled { opacity: 0.55; cursor: default; }
 .wheel-note { color: var(--muted); font-size: 14px; }
 .wheel-note:empty { display: none; }
-.wheel-add-row { display: flex; gap: 8px; }
+.wheel-list-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 34px; }
+.wheel-list-head .result-count { margin: 0; }
+.wheel-clear { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; background: var(--card); border: 1px solid var(--border); border-radius: 999px; color: var(--danger); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+.wheel-clear:hover:not(:disabled) { border-color: var(--danger); background: var(--card-2); }
+.wheel-clear:focus-visible { outline: 2px solid var(--danger); outline-offset: 2px; }
+.wheel-clear:disabled { opacity: 0.45; cursor: default; }
 .wheel-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow-y: auto; }
 .wheel-item { display: flex; align-items: center; gap: 8px; padding: 6px 6px 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card); }
 .wheel-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
 .wheel-item-name:hover { color: var(--primary); }
 .wheel-item-del { flex: none; font-size: 20px; line-height: 1; }
-.wheel-opt { display: flex; align-items: center; gap: 8px; color: var(--muted); cursor: pointer; }
 
-@media (max-width: 800px) {
-  .wheel-layout { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+@media (max-width: 900px) {
+  .wheel-layout { grid-template-columns: auto minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "mute dock" "stage stage" "side side"; gap: 12px 10px; }
+  .wheel-layout > .wheel-mute-btn { grid-area: mute; }
+  .wheel-layout > .wheel-dock { max-width: 420px; }
+  .wheel-layout > .wheel-stage { margin-top: 8px; }
+  .wheel-layout > .wheel-side { margin-top: 8px; }
   .wheel-list { max-height: 280px; }
 }

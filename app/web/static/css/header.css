@@ -41,7 +41,7 @@
 .sug-note { padding: 12px; color: var(--muted); font-size: 14px; }
 .sug-all { display: block; padding: 10px 12px; text-align: center; font-weight: 700; color: var(--primary); text-decoration: none; border-top: 1px solid var(--border); margin-top: 4px; }
 
-@media (max-width: 860px) {
+@media (max-width: 940px) {
   .topbar-inner { flex-wrap: wrap; gap: 8px 12px; }
   .search { order: 3; width: 100%; margin-left: 0; }
   .nav { flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }

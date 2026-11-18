@@ -53,13 +53,12 @@ export function loadWheel() {
   return {
     items,
     mode: data?.mode === "planned" ? "planned" : "custom",
-    removeWinner: Boolean(data?.removeWinner),
     mute: Boolean(data?.mute),
   };
 }
 
 export function saveWheel(state) {
-  writeJson(WHEEL_KEY, { items: state.items, mode: state.mode, removeWinner: state.removeWinner, mute: state.mute });
+  writeJson(WHEEL_KEY, { items: state.items, mode: state.mode, mute: state.mute });
 }
 
 /** Случайный индекс от 0 до n-1: crypto, когда есть, чтобы исход не зависел от Math.random. */
