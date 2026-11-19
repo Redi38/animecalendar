@@ -1,10 +1,10 @@
 import { api } from "../api.js";
+import { actionMenu } from "../ui/actionmenu.js";
 import { store } from "../store.js";
 import { coverEl } from "../ui/card.js";
 import { titleSuggest } from "../ui/titlesuggest.js";
 import { drawWheel, spinTo } from "../ui/wheelcanvas.js";
 import { fitWheel } from "../ui/wheelfit.js";
-import { wheelResult } from "../ui/wheelresult.js";
 import { playStop, playTick, primeWheelSound } from "../ui/wheelsound.js";
 import { toast } from "../ui/toast.js";
 import { segmented } from "../ui/segmented.js";
@@ -27,7 +27,7 @@ export function renderWheel(root) {
   let rotation = 0; // текущий угол колеса, чтобы повторный запуск продолжал с того же места
   let spinning = null; // { cancel } идущего вращения
   let winner = null; // последний выпавший тайтл
-  let resultCard = null; // карточка выпавшего тайтла под колесом
+  let openTimer = 0; // таймер автоматического открытия карточки после остановки колеса
   let planned = { status: "idle", items: [], total: 0, error: "" }; // «Хочу посмотреть» для режима planned
   let plannedRequest = null;
 
@@ -54,9 +54,18 @@ export function renderWheel(root) {
   const list = h("ul", { class: "wheel-list" });
   const count = h("p", { class: "result-count" });
   const muteBtn = h("button", { class: "wheel-mute-btn", type: "button", onclick: toggleMute });
-  const clearBtn = h("button", { class: "wheel-clear", type: "button", onclick: clearAll });
-  clearBtn.innerHTML = `${ICON_TRASH}<span>Очистить</span>`;
-  const head = h("div", { class: "wheel-list-head" }, count, clearBtn);
+  // «Очистить» открывает маленькое меню с одним пунктом: нажатие на него и есть подтверждение.
+  const trashIcon = h("span", { class: "wheel-clear-icon", "aria-hidden": "true" });
+  trashIcon.innerHTML = ICON_TRASH;
+  const clearMenu = actionMenu({
+    rootClass: "wheel-clear-menu",
+    listClass: "list-menu-list wheel-clear-list",
+    trigger: { props: { class: "wheel-clear" }, content: [trashIcon, h("span", null, "Очистить")] },
+    actions: () => [{ label: `Очистить весь список (${state.items.length})`, danger: true, run: clearAll }],
+    stopEscape: true,
+  });
+  const clearBtn = clearMenu.querySelector("button");
+  const head = h("div", { class: "wheel-list-head" }, count, clearMenu);
 
   stage.append(holder, current, result);
   fill(
@@ -109,8 +118,7 @@ export function renderWheel(root) {
 
   function resetResult() {
     winner = null;
-    resultCard?.cancel();
-    resultCard = null;
+    clearTimeout(openTimer);
     result.replaceChildren();
   }
 
@@ -156,7 +164,7 @@ export function renderWheel(root) {
     const n2 = state.mode === "custom" ? `${n} из ${WHEEL_MAX_ITEMS}` : planned.status === "ready" ? `${planned.total}` : "…";
     summary.textContent = `${MODES[state.mode]} · ${n2}`;
     customOnly.hidden = !custom;
-    clearBtn.hidden = !custom;
+    clearMenu.hidden = !custom;
     clearBtn.disabled = !n || Boolean(spinning);
     spinBtn.disabled = n < 2 || Boolean(spinning);
     spinBtn.title = n < 2 ? "Нужно хотя бы два тайтла" : "";
@@ -215,7 +223,6 @@ export function renderWheel(root) {
 
   function clearAll() {
     if (spinning || !state.items.length) return;
-    if (!window.confirm("Очистить весь список рулетки?")) return;
     state.items = [];
     resetResult();
     commit();
@@ -247,9 +254,22 @@ export function renderWheel(root) {
     repaint(idx);
   }
 
+  /** Карточка тайтла открывается поверх колеса, как при нажатии на постер; закрыли её, и колесо можно крутить снова. */
+  function openCard(id) {
+    location.hash = `#/title/${id}`;
+  }
+
   function showResult() {
-    resultCard = wheelResult(winner);
-    result.replaceChildren(resultCard.el);
+    const item = winner;
+    const again = h(
+      "button",
+      { class: "wheel-card-head", type: "button", title: "Открыть карточку", onclick: () => openCard(item.id) },
+      coverEl(item, "cover cover-sm"),
+      h("span", { class: "wheel-card-text" }, h("span", { class: "wheel-card-label" }, "Выпало"), h("span", { class: "wheel-card-title" }, item.title)),
+    );
+    result.replaceChildren(h("div", { class: "wheel-card" }, again));
+    // Даём секунду увидеть подсвеченный сегмент, потом открываем карточку.
+    openTimer = setTimeout(() => openCard(item.id), 600);
   }
 
   if (state.mode === "planned") loadPlanned();
@@ -260,7 +280,7 @@ export function renderWheel(root) {
   return {
     cleanup: () => {
       stopFit();
-      resultCard?.cancel();
+      clearTimeout(openTimer);
       spinning?.cancel();
       plannedRequest?.abort();
     },
