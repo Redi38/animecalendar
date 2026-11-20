@@ -3,7 +3,7 @@ import { actionMenu } from "../ui/actionmenu.js";
 import { store } from "../store.js";
 import { coverEl } from "../ui/card.js";
 import { titleSuggest } from "../ui/titlesuggest.js";
-import { drawWheel, spinTo } from "../ui/wheelcanvas.js";
+import { drawWheel, prefersReducedMotion, spinTo } from "../ui/wheelcanvas.js";
 import { fitWheel } from "../ui/wheelfit.js";
 import { playStop, playTick, primeWheelSound } from "../ui/wheelsound.js";
 import { toast } from "../ui/toast.js";
@@ -22,6 +22,8 @@ const ICON_MUTED = SVG(`${SPEAKER}<line x1="23" y1="9" x2="17" y2="15"></line><l
  * «Рулетка»: колесо выбирает случайный тайтл. Список — либо свой (тайтлы из поиска по каталогу),
  * либо автоматически из «Хочу посмотреть».
  */
+const IDLE_DEG_PER_SEC = 4; // скорость холостого хода колеса
+
 export function renderWheel(root) {
   const state = loadWheel();
   let rotation = 0; // текущий угол колеса, чтобы повторный запуск продолжал с того же места
@@ -67,7 +69,9 @@ export function renderWheel(root) {
   const clearBtn = clearMenu.querySelector("button");
   const head = h("div", { class: "wheel-list-head" }, count, clearMenu);
 
-  stage.append(holder, current, result);
+  // Бегущее название и «Выпало» стоят над колесом, в одной ячейке: высота постоянна, колесо не прыгает.
+  const top = h("div", { class: "wheel-top" }, current, result);
+  stage.append(top, holder);
   fill(
     root,
     h("h1", { class: "page-title" }, "Рулетка"),
@@ -155,6 +159,16 @@ export function renderWheel(root) {
     return "Для рулетки нужно хотя бы два тайтла в «Хочу посмотреть».";
   }
 
+  /** В покое над колесом показывается тайтл сегмента, который сейчас под стрелкой. */
+  function showUnderPointer() {
+    const shown = items();
+    const n = shown.length;
+    if (n < 2) return;
+    const idx = Math.floor((360 - (((rotation % 360) + 360) % 360)) % 360 / (360 / n)) % n;
+    const title = shown[idx].title;
+    if (current.textContent !== title) current.textContent = title;
+  }
+
   function repaint(highlight = -1) {
     const custom = state.mode === "custom";
     const shown = items();
@@ -177,7 +191,7 @@ export function renderWheel(root) {
       count.textContent = planned.status === "ready" && planned.total ? `В «Хочу посмотреть»: ${planned.total}` : "";
     }
     if (n < 2) current.textContent = emptyText();
-    else if (!spinning && !winner) current.textContent = "";
+    else if (!spinning && !winner) showUnderPointer();
     fill(
       list,
       ...shown.map((item, i) =>
@@ -234,9 +248,9 @@ export function renderWheel(root) {
     if (n < 2 || spinning) return;
     primeWheelSound();
     resetResult();
-    current.textContent = "";
     const idx = pickIndex(n);
     drawWheel(canvas, wheel.map((x) => x.title)); // сбрасываем подсветку прошлого результата
+    current.textContent = wheel[Math.floor((360 - (((rotation % 360) + 360) % 360)) % 360 / (360 / n)) % n].title;
     const onCross = (i) => {
       current.textContent = wheel[i].title;
       if (!state.mute) playTick();
@@ -272,6 +286,24 @@ export function renderWheel(root) {
     openTimer = setTimeout(() => openCard(item.id), 600);
   }
 
+  // Холостой ход: пока колесо никто не крутит и нет результата, оно медленно ползёт, как плёнка.
+  let idleFrame = 0;
+  let idleLast = 0;
+  function idleTick(now) {
+    const dt = Math.min(0.1, (now - idleLast) / 1000);
+    idleLast = now;
+    if (!spinning && !winner && !document.hidden) {
+      rotation = (rotation + IDLE_DEG_PER_SEC * dt) % 360;
+      canvas.style.transform = `rotate(${rotation}deg)`;
+      showUnderPointer();
+    }
+    idleFrame = requestAnimationFrame(idleTick);
+  }
+  if (!prefersReducedMotion()) {
+    idleLast = performance.now();
+    idleFrame = requestAnimationFrame(idleTick);
+  }
+
   if (state.mode === "planned") loadPlanned();
   paintMute();
   repaint();
@@ -280,6 +312,7 @@ export function renderWheel(root) {
   return {
     cleanup: () => {
       stopFit();
+      cancelAnimationFrame(idleFrame);
       clearTimeout(openTimer);
       spinning?.cancel();
       plannedRequest?.abort();
