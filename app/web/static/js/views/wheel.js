@@ -4,11 +4,13 @@ import { store } from "../store.js";
 import { coverEl } from "../ui/card.js";
 import { titleSuggest } from "../ui/titlesuggest.js";
 import { drawWheel, prefersReducedMotion, spinTo } from "../ui/wheelcanvas.js";
+import { fireWheelConfetti } from "../ui/wheelconfetti.js";
 import { fitWheel } from "../ui/wheelfit.js";
 import { playStop, playTick, primeWheelSound } from "../ui/wheelsound.js";
 import { toast } from "../ui/toast.js";
 import { segmented } from "../ui/segmented.js";
 import { MODES, WHEEL_MAX_ITEMS, WHEEL_PLANNED_MAX, addItem, cleanItem, loadWheel, pickIndex, sample, saveWheel } from "../wheellist.js";
+import { SPEED_MAX, SPEED_MIN, SPEED_STEP, clampSpeed, formatSpeed, loadFx, saveFx } from "../wheelsettings.js";
 import { fill, h } from "../util.js";
 
 const SVG = (body) => `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
@@ -23,20 +25,44 @@ const ICON_MUTED = SVG(`${SPEAKER}<line x1="23" y1="9" x2="17" y2="15"></line><l
  * либо автоматически из «Хочу посмотреть».
  */
 const IDLE_DEG_PER_SEC = 4; // скорость холостого хода колеса
+const NEON_EXIT_MS = 520; // сколько гаснет неон при выключении (см. wheel-neon-*-out в wheel.css)
+const OPEN_DELAY_MS = 600; // пауза между остановкой колеса и открытием карточки
+const CONFETTI_OPEN_DELAY_MS = 1600; // с конфетти пауза дольше, чтобы залп успел увидеть, пока карточка не закрыла колесо
+
+/** Кнопка-переключатель настройки (как showcase-filter-btn в Film Roulette). onToggle получает новое значение. */
+function fxToggle(label, pressed, onToggle) {
+  const btn = h("button", { class: `wheel-fx-btn${pressed ? " active" : ""}`, type: "button", "aria-pressed": String(pressed) }, label);
+  btn.addEventListener("click", () => {
+    const on = btn.getAttribute("aria-pressed") !== "true";
+    btn.setAttribute("aria-pressed", String(on));
+    btn.classList.toggle("active", on);
+    btn.classList.remove("fx-toggle-pop");
+    void btn.offsetWidth;
+    btn.classList.add("fx-toggle-pop");
+    onToggle(on);
+  });
+  btn.addEventListener("animationend", () => btn.classList.remove("fx-toggle-pop"));
+  return btn;
+}
 
 export function renderWheel(root) {
   const state = loadWheel();
+  const fx = loadFx(); // скорость вращения, неон, конфетти
+  let stopConfetti = null; // убирает идущее конфетти
+  let neonExitTimer = 0;
   let rotation = 0; // текущий угол колеса, чтобы повторный запуск продолжал с того же места
   let spinning = null; // { cancel } идущего вращения
   let winner = null; // последний выпавший тайтл
   let openTimer = 0; // таймер автоматического открытия карточки после остановки колеса
   let planned = { status: "idle", items: [], total: 0, error: "" }; // «Хочу посмотреть» для режима planned
   let plannedRequest = null;
+  let plannedCache = null; // { key, items, total }: уже загруженное колесо «Хочу посмотреть», чтобы переключение туда-обратно не мигало
+  let lastTitles = []; // что было нарисовано на колесе в прошлый раз: пока грузится список, колесо не пустеет
 
   const canvas = h("canvas", { class: "wheel-canvas", "aria-hidden": "true" });
   const pointer = h("div", { class: "wheel-pointer", "aria-hidden": "true" });
   const stage = h("div", { class: "wheel-stage" });
-  const holder = h("div", { class: "wheel-holder" }, h("div", { class: "wheel-disc" }, canvas), pointer);
+  const holder = h("div", { class: `wheel-holder wheel-holder--${fx.neon ? "neon" : "classic"}` }, h("div", { class: "wheel-disc" }, canvas), pointer);
   const current = h("p", { class: "wheel-current" });
   const result = h("div", { class: "wheel-result", role: "status", "aria-live": "polite" });
   const spinBtn = h("button", { class: "btn btn-primary wheel-spin", type: "button", onclick: spin }, "🎲 Крутить");
@@ -49,7 +75,45 @@ export function renderWheel(root) {
     h("span", { class: "wheel-dock-heading" }, h("span", null, "Настройки рулетки"), summary),
   );
   dockToggle.insertAdjacentHTML("beforeend", ICON_CHEVRON);
-  const dockBody = h("div", { class: "wheel-dock-body" }, h("div", { class: "wheel-dock-inner" }, h("p", { class: "wheel-dock-caption" }, "Откуда брать тайтлы"), modeToggle.el));
+  // Скорость вращения: число секунд, применяется со следующего запуска.
+  const speedInput = h("input", {
+    class: "wheel-speed-input",
+    type: "number",
+    inputmode: "decimal",
+    min: SPEED_MIN,
+    max: SPEED_MAX,
+    step: SPEED_STEP,
+    value: formatSpeed(fx.speed),
+    id: "wheel-speed",
+    onchange: commitSpeed,
+    onblur: commitSpeed,
+    onkeydown: (e) => {
+      if (e.key === "Enter") {
+        commitSpeed();
+        speedInput.blur();
+      }
+    },
+  });
+  const speedRow = h("div", { class: "wheel-speed" }, h("label", { for: "wheel-speed" }, "⏱ Скорость колеса"), speedInput, h("span", { class: "wheel-speed-unit" }, "сек"));
+  const neonBtn = fxToggle("✨ Неон", fx.neon, setNeon);
+  const confettiBtn = fxToggle("🎊 Конфетти", fx.confetti, (on) => {
+    fx.confetti = on;
+    saveFx(fx);
+    if (!on) stopConfetti?.();
+  });
+  const dockBody = h(
+    "div",
+    { class: "wheel-dock-body" },
+    h(
+      "div",
+      { class: "wheel-dock-inner" },
+      h("p", { class: "wheel-dock-caption" }, "Откуда брать тайтлы"),
+      modeToggle.el,
+      h("p", { class: "wheel-dock-caption" }, "Эффекты и скорость"),
+      h("div", { class: "wheel-fx-row" }, confettiBtn, neonBtn),
+      speedRow,
+    ),
+  );
   const dock = h("div", { class: "wheel-dock" }, dockToggle, dockBody, spinBtn);
   const customOnly = h("div", { class: "wheel-custom" }, suggest.el);
   const note = h("p", { class: "wheel-note" });
@@ -96,6 +160,31 @@ export function renderWheel(root) {
   /** Тайтлы, которые сейчас на колесе. */
   const items = () => (state.mode === "planned" ? planned.items : state.items);
 
+  function commitSpeed() {
+    fx.speed = clampSpeed(parseFloat(speedInput.value.replace(",", ".")), fx.speed);
+    speedInput.value = formatSpeed(fx.speed);
+    saveFx(fx);
+  }
+
+  /** Неон включается плавно; при выключении на время гаснет через класс --neon-exit. */
+  function setNeon(on) {
+    fx.neon = on;
+    saveFx(fx);
+    clearTimeout(neonExitTimer);
+    holder.classList.toggle("wheel-holder--neon", on);
+    holder.classList.toggle("wheel-holder--classic", !on);
+    holder.classList.toggle("wheel-holder--neon-exit", !on);
+    if (!on) neonExitTimer = setTimeout(() => holder.classList.remove("wheel-holder--neon-exit"), NEON_EXIT_MS);
+  }
+
+  /** Стрелка дёргается, когда колесо проходит очередной сегмент. */
+  function flickPointer() {
+    if (prefersReducedMotion()) return;
+    pointer.classList.remove("wheel-pointer--flick");
+    void pointer.offsetWidth; // перезапуск анимации, если предыдущая ещё идёт
+    pointer.classList.add("wheel-pointer--flick");
+  }
+
   function toggleMute() {
     state.mute = !state.mute;
     saveWheel(state);
@@ -129,6 +218,12 @@ export function renderWheel(root) {
   async function loadPlanned() {
     plannedRequest?.abort();
     const ids = store.plannedIds();
+    const key = ids.join(",");
+    if (plannedCache?.key === key) {
+      // Тот же список, что уже грузили: показываем его сразу и с теми же тайтлами на колесе.
+      planned = { status: "ready", items: plannedCache.items, total: plannedCache.total, error: "" };
+      return;
+    }
     planned = { status: ids.length ? "loading" : "ready", items: [], total: ids.length, error: "" };
     if (!ids.length) return;
     const request = new AbortController();
@@ -138,6 +233,7 @@ export function renderWheel(root) {
       const data = await api.titles(ids, request.signal);
       const all = data.items.map(cleanItem).filter(Boolean);
       planned = { status: "ready", items: sample(all, WHEEL_PLANNED_MAX, pickIndex), total: all.length, error: "" };
+      plannedCache = { key, items: planned.items, total: planned.total };
     } catch (err) {
       if (err.name === "AbortError") return;
       planned = { status: "error", items: [], total: ids.length, error: err.message };
@@ -173,7 +269,12 @@ export function renderWheel(root) {
     const custom = state.mode === "custom";
     const shown = items();
     const n = shown.length;
-    drawWheel(canvas, shown.map((x) => x.title), highlight);
+    const titles = shown.map((x) => x.title);
+    if (titles.length) lastTitles = titles;
+    // Пока список грузится, оставляем на колесе прежние сегменты (приглушённые), а не рисуем пустое колесо.
+    const loading = state.mode === "planned" && planned.status === "loading";
+    drawWheel(canvas, loading && lastTitles.length ? lastTitles : titles, highlight);
+    holder.classList.toggle("wheel-holder--loading", loading && lastTitles.length > 0);
     modeToggle.set(state.mode, Boolean(spinning));
     const n2 = state.mode === "custom" ? `${n} из ${WHEEL_MAX_ITEMS}` : planned.status === "ready" ? `${planned.total}` : "…";
     summary.textContent = `${MODES[state.mode]} · ${n2}`;
@@ -253,9 +354,11 @@ export function renderWheel(root) {
     current.textContent = wheel[Math.floor((360 - (((rotation % 360) + 360) % 360)) % 360 / (360 / n)) % n].title;
     const onCross = (i) => {
       current.textContent = wheel[i].title;
+      flickPointer();
       if (!state.mute) playTick();
     };
-    spinning = spinTo(canvas, n, idx, { onCross, startDeg: rotation });
+    stopConfetti?.();
+    spinning = spinTo(canvas, n, idx, { onCross, startDeg: rotation, durationMs: Math.round(fx.speed * 1000) });
     repaint();
     const end = await spinning.promise;
     spinning = null;
@@ -264,7 +367,9 @@ export function renderWheel(root) {
     winner = wheel[idx];
     if (!state.mute) playStop();
     current.textContent = "";
-    showResult();
+    const confetti = fx.confetti && !prefersReducedMotion();
+    if (confetti) stopConfetti = fireWheelConfetti(holder);
+    showResult(confetti ? CONFETTI_OPEN_DELAY_MS : OPEN_DELAY_MS);
     repaint(idx);
   }
 
@@ -273,7 +378,7 @@ export function renderWheel(root) {
     location.hash = `#/title/${id}`;
   }
 
-  function showResult() {
+  function showResult(openDelay = OPEN_DELAY_MS) {
     const item = winner;
     const again = h(
       "button",
@@ -282,8 +387,8 @@ export function renderWheel(root) {
       h("span", { class: "wheel-card-text" }, h("span", { class: "wheel-card-label" }, "Выпало"), h("span", { class: "wheel-card-title" }, item.title)),
     );
     result.replaceChildren(h("div", { class: "wheel-card" }, again));
-    // Даём секунду увидеть подсвеченный сегмент, потом открываем карточку.
-    openTimer = setTimeout(() => openCard(item.id), 600);
+    // Даём время увидеть подсвеченный сегмент (и конфетти, если они включены), потом открываем карточку.
+    openTimer = setTimeout(() => openCard(item.id), openDelay);
   }
 
   // Холостой ход: пока колесо никто не крутит и нет результата, оно медленно ползёт, как плёнка.
@@ -314,6 +419,8 @@ export function renderWheel(root) {
       stopFit();
       cancelAnimationFrame(idleFrame);
       clearTimeout(openTimer);
+      clearTimeout(neonExitTimer);
+      stopConfetti?.();
       spinning?.cancel();
       plannedRequest?.abort();
     },

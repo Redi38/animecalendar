@@ -5,7 +5,7 @@ import { readJson, writeJson } from "./storage.js";
 export const WHEEL_KEY = "anime_wheel_v1";
 export const WHEEL_MAX_ITEMS = 100; // больше сегментов на колесе уже не прочитать
 export const WHEEL_PLANNED_MAX = 150; // из «Хочу посмотреть» в колесо берём не больше стольких случайных тайтлов
-export const MODES = { custom: "Свой список", planned: "Из «Хочу посмотреть»" };
+export const MODES = { custom: "Свой список", planned: "Хочу посмотреть" };
 
 const TITLE_MAX = 200;
 const COVER_MAX = 600;

@@ -84,14 +84,15 @@ export function drawWheel(canvas, labels, highlight = -1) {
 
 /**
  * Крутит canvas так, чтобы под стрелкой (сверху) остался сегмент winner из n. Угол внутри сегмента случайный,
- * но не у самого края. onCross(i) зовётся, когда стрелка переходит на новый сегмент. Возвращает { promise, cancel }.
+ * но не у самого края. onCross(i) зовётся, когда стрелка переходит на новый сегмент. durationMs — длительность вращения
+ * (настройка «Скорость колеса»). Возвращает { promise, cancel }.
  */
-export function spinTo(canvas, n, winner, { onCross, startDeg = 0 } = {}) {
+export function spinTo(canvas, n, winner, { onCross, startDeg = 0, durationMs = SPIN_MS } = {}) {
   const segDeg = 360 / n;
   const jitter = (Math.random() - 0.5) * segDeg * 0.6;
   const finalMod = (((360 - (winner + 0.5) * segDeg - jitter) % 360) + 360) % 360;
   const reduced = prefersReducedMotion();
-  const duration = reduced ? 500 : SPIN_MS;
+  const duration = reduced ? 500 : durationMs;
   const startMod = ((startDeg % 360) + 360) % 360;
   const toTarget = (((finalMod - startMod) % 360) + 360) % 360;
   const endDeg = startDeg + (reduced ? 1 : EXTRA_TURNS) * 360 + toTarget;
