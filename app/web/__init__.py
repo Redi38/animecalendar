@@ -16,7 +16,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.config import Settings, settings
+from app.config import Settings, settings, watch_template
 from app.db import Database
 from app.providers.anilist import AniListClient, AniListError
 from app.providers.ports import AniListPort, ShikimoriPort
@@ -26,7 +26,7 @@ from app.services.catalog import Catalog
 
 from .gauth import make_fernet
 from .gauth import router as gauth_router
-from .routes import router, watch_template
+from .routes import router
 from .security import build_csp, google_client_id
 
 logger = logging.getLogger(__name__)

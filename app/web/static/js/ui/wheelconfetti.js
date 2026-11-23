@@ -1,6 +1,13 @@
 // Конфетти над колесом, когда оно остановилось (как в Film Roulette). Холст лежит поверх страницы и не ловит клики.
 
-const COLORS = ["#8b7cf6", "#5b8def", "#34d399", "#f2596b", "#f6c945", "#ef7fd1", "#5be3d0", "#f6975a"];
+const FALLBACK_COLORS = ["#8b7cf6"];
+
+/** Цвета берём из --confetti-colors (wheel.css), чтобы палитра жила в одном месте. */
+function palette() {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue("--confetti-colors");
+  const colors = raw.trim().split(/\s+/).filter(Boolean);
+  return colors.length ? colors : FALLBACK_COLORS;
+}
 const DURATION_MS = 5200;
 const GRAVITY = 0.1;
 
@@ -29,6 +36,7 @@ export function fireWheelConfetti(el) {
   const cy = rect.height * 0.42;
   const count = Math.round(Math.min(280, Math.max(150, rect.width / 1.8)));
   const fadeFrom = DURATION_MS * 0.72;
+  const colors = palette();
 
   const particles = Array.from({ length: count }, () => {
     const angle = Math.random() * Math.PI * 2;
@@ -40,7 +48,7 @@ export function fireWheelConfetti(el) {
       vy: Math.sin(angle) * speed - 3.5,
       drag: 0.985 + Math.random() * 0.01,
       size: 6 + Math.random() * 8,
-      color: COLORS[Math.floor(Math.random() * COLORS.length)],
+      color: colors[Math.floor(Math.random() * colors.length)],
       rot: Math.random() * Math.PI * 2,
       vr: (Math.random() - 0.5) * 0.5,
       sway: Math.random() * Math.PI * 2,

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import Depends, Request
+from starlette.datastructures import State
 
 from app.providers.yummy import YummyClient
 from app.services.catalog import Catalog
@@ -18,5 +19,11 @@ def yummy_of(request: Request) -> YummyClient:
     return request.app.state.yummy
 
 
+def state_of(request: Request) -> State:
+    """Настройки, выставленные при старте (ссылка «Смотреть», Google-ключи): app.state целиком."""
+    return request.app.state
+
+
 CatalogDep = Annotated[Catalog, Depends(catalog_of)]
 YummyDep = Annotated[YummyClient, Depends(yummy_of)]
+StateDep = Annotated[State, Depends(state_of)]

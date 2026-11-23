@@ -1,13 +1,14 @@
 import { api } from "../api.js";
+import { latestRequest } from "../loader.js";
 import { store } from "../store.js";
 import { fill, h } from "../util.js";
-import { closeDialogAnimated, fadeOut, reducedMotion } from "./motion.js";
+import { closeDialogAnimated, fadeOut, reducedMotion, replayEnter } from "./motion.js";
 import { titleBody, upgradeWatchLink } from "./titlebody.js";
 import { titleMenu } from "./titlemenu.js";
 
 export { setWatchTemplate } from "./titlebody.js";
 
-let controller = null;
+const latest = latestRequest();
 
 /**
  * Открывает карточку.
@@ -16,9 +17,7 @@ let controller = null;
  * onClose вызывается, когда пользователь закрыл окно сам (Esc, крестик, клик по фону). */
 export function openTitleDialog(id, onClose, { onRename, onIgnore, onRestore } = {}) {
   const dialog = document.getElementById("title-dialog");
-  controller?.abort();
-  controller = new AbortController();
-  const signal = controller.signal;
+  const { signal } = latest.start();
 
   dialog.classList.remove("is-closing"); // если окно как раз закрывалось, отменяем закрытие
   const wasOpen = dialog.open;
@@ -66,8 +65,7 @@ export function openTitleDialog(id, onClose, { onRename, onIgnore, onRestore } =
       if (onRestore && store.isIgnored(d.id)) actions.push({ label: "Вернуть в анонсы", run: onRestore });
       if (actions.length) dialog.querySelector(".dialog-close")?.after(titleMenu(d, actions));
       upgradeWatchLink(holder, d, signal);
-      holder.classList.add("is-entering");
-      setTimeout(() => holder.classList.remove("is-entering"), 900);
+      replayEnter(holder);
       dialog.scrollTop = 0;
       document.title = `${d.title} — Аниме-календарь`;
     })
@@ -88,7 +86,7 @@ export function openTitleDialog(id, onClose, { onRename, onIgnore, onRestore } =
 
 /** Закрыть окно программно (например, при переходе на другую страницу) без вызова onClose. */
 export function closeTitleDialog() {
-  controller?.abort();
+  latest.abort();
   const dialog = document.getElementById("title-dialog");
   if (dialog.open) {
     dialog.dataset.silent = "1";

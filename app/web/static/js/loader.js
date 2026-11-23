@@ -7,6 +7,42 @@ export function loadingBox(text) {
 }
 
 /**
+ * «Последний запрос побеждает» для живого поиска и всего, что перезапускается при каждом вводе: новый запуск
+ * отменяет прежний, а устаревший ответ молча отбрасывается (в отличие от createLoader, который живёт на экран).
+ */
+export function latestRequest() {
+  let controller = null;
+
+  /** Отменяет прежний запрос и возвращает signal нового и isCurrent() — «это всё ещё последний и не отменённый». */
+  function start() {
+    controller?.abort();
+    const mine = new AbortController();
+    controller = mine;
+    return { signal: mine.signal, isCurrent: () => controller === mine && !mine.signal.aborted };
+  }
+
+  /**
+   * Выполняет request(signal) и передаёт результат в onData. Вернёт true, если данные получены и показаны.
+   * Отменённый и устаревший запрос молча пропускаются; остальные ошибки (в том числе из onData) получает onError(err).
+   */
+  async function run(request, onData, onError) {
+    const { signal, isCurrent } = start();
+    try {
+      const data = await request(signal);
+      if (!isCurrent()) return false;
+      await onData(data);
+      return true;
+    } catch (err) {
+      if (err.name === "AbortError" || !isCurrent()) return false;
+      onError(err);
+      return false;
+    }
+  }
+
+  return { start, run, abort: () => controller?.abort() };
+}
+
+/**
  * Загрузка данных для одного экрана. Берёт на себя то, что раньше повторял каждый экран:
  * общий AbortController, отмену при уходе со страницы, игнорирование устаревших ответов
  * (isCurrent) и блок ошибки с кнопкой «Повторить», которая перезагружает данные на месте.

@@ -2,6 +2,8 @@ import { describeGroup } from "../groups.js";
 import { h } from "../util.js";
 import { coverEl } from "./card.js";
 
+const OPENING_MS = 600; // столько идёт анимация раскрытия (.group.is-opening в layout.css); после неё класс снимается
+
 /**
  * Раскрывающаяся группа-франшиза: шапка с обложкой и названием, внутри — тайтлы (сезоны, фильмы, OVA).
  * group — { title, cover, color }; items — карточки внутри; renderItem(item) возвращает элемент.
@@ -27,7 +29,7 @@ export function groupSection({ group, items, renderItem, open = false, compact =
         section.classList.toggle("is-open", next);
         if (next) {
           section.classList.add("is-opening"); // анимация появления только в момент раскрытия
-          setTimeout(() => section.classList.remove("is-opening"), 600);
+          setTimeout(() => section.classList.remove("is-opening"), OPENING_MS);
         }
         onToggle?.(next);
       },

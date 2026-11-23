@@ -1,4 +1,5 @@
 import { api } from "../api.js";
+import { latestRequest } from "../loader.js";
 import { clear, debounce, fill, formatStart, h } from "../util.js";
 import { coverEl } from "./card.js";
 
@@ -7,7 +8,7 @@ import { coverEl } from "./card.js";
  * (или Enter для первого результата) вызывает onPick(item). isAdded(id) помечает тайтлы, которые уже выбраны.
  */
 export function titleSuggest({ onPick, isAdded, placeholder = "Найти аниме по названию" }) {
-  let controller = null;
+  const latest = latestRequest();
   let lastQuery = "";
   let results = [];
 
@@ -45,7 +46,7 @@ export function titleSuggest({ onPick, isAdded, placeholder = "Найти ани
   }
 
   function hide() {
-    controller?.abort();
+    latest.abort();
     lastQuery = "";
     results = [];
     panel.hidden = true;
@@ -63,18 +64,15 @@ export function titleSuggest({ onPick, isAdded, placeholder = "Найти ани
     if (q.length < 2) return hide();
     if (q === lastQuery) return;
     lastQuery = q;
-    controller?.abort();
-    controller = new AbortController();
     show([h("div", { class: "sug-note", role: "status" }, "Ищем…")]);
-    try {
-      const data = await api.search(q, false, controller.signal);
-      if (q !== lastQuery) return;
-      results = data.items.slice(0, 10);
-      show(results.length ? results.map(row) : [h("div", { class: "sug-note" }, "Среди загруженных тайтлов ничего нет.")]);
-    } catch (err) {
-      if (err.name === "AbortError") return;
-      show([h("div", { class: "sug-note", role: "alert" }, err.message)]);
-    }
+    await latest.run(
+      (signal) => api.search(q, false, signal),
+      (data) => {
+        results = data.items.slice(0, 10);
+        show(results.length ? results.map(row) : [h("div", { class: "sug-note" }, "Среди загруженных тайтлов ничего нет.")]);
+      },
+      (err) => show([h("div", { class: "sug-note", role: "alert" }, err.message)]),
+    );
   }, 250);
 
   input.addEventListener("input", run);

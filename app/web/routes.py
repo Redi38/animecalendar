@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app import seasons
@@ -14,7 +14,7 @@ from app.services import dto
 from app.services.errors import NotFound
 from app.services.studios import MAX_PAGE
 
-from .deps import CatalogDep, YummyDep
+from .deps import CatalogDep, StateDep, YummyDep
 
 router = APIRouter(prefix="/api")
 
@@ -33,15 +33,8 @@ class ListBody(BaseModel):
     ids: list[TitleId] = Field(max_length=5000)
 
 
-def watch_template(raw: str) -> str:
-    """Шаблон ссылки «Смотреть онлайн» отдаём, только если это http(s)-адрес с местом под название."""
-    url = (raw or "").strip()
-    ok = url.startswith(("https://", "http://")) and "{q}" in url
-    return url if ok else ""
-
-
 @router.get("/meta")
-async def meta(request: Request, catalog: CatalogDep, yummy: YummyDep) -> dict:
+async def meta(state: StateDep, catalog: CatalogDep, yummy: YummyDep) -> dict:
     today = catalog.today()
     season, year = seasons.season_of(today)
     return {
@@ -49,10 +42,10 @@ async def meta(request: Request, catalog: CatalogDep, yummy: YummyDep) -> dict:
         "min_year": seasons.MIN_YEAR,
         "max_year": seasons.max_year(today),
         "seasons": [{"code": s, "slug": seasons.slug(s), "label": SEASON_RU[s]} for s in seasons.SEASONS],
-        "watch_url": request.app.state.watch_url,
+        "watch_url": state.watch_url,
         "watch_exact": yummy.enabled,
-        "google_client_id": request.app.state.google_client_id,
-        "google_persistent": bool(request.app.state.google_secret),
+        "google_client_id": state.google_client_id,
+        "google_persistent": bool(state.google_secret),
     }
 
 

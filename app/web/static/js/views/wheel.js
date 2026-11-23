@@ -1,62 +1,43 @@
-import { api } from "../api.js";
 import { actionMenu } from "../ui/actionmenu.js";
-import { store } from "../store.js";
 import { coverEl } from "../ui/card.js";
 import { titleSuggest } from "../ui/titlesuggest.js";
 import { drawWheel, prefersReducedMotion, spinTo } from "../ui/wheelcanvas.js";
 import { fireWheelConfetti } from "../ui/wheelconfetti.js";
+import { wheelFxPanel } from "../ui/wheelfxpanel.js";
 import { fitWheel } from "../ui/wheelfit.js";
+import { ICON_CHEVRON, ICON_MUTED, ICON_TRASH, ICON_VOLUME } from "../ui/icons.js";
+import { startWheelIdle } from "../ui/wheelidle.js";
 import { playStop, playTick, primeWheelSound } from "../ui/wheelsound.js";
 import { toast } from "../ui/toast.js";
 import { segmented } from "../ui/segmented.js";
-import { MODES, WHEEL_MAX_ITEMS, WHEEL_PLANNED_MAX, addItem, cleanItem, loadWheel, pickIndex, sample, saveWheel } from "../wheellist.js";
-import { SPEED_MAX, SPEED_MIN, SPEED_STEP, clampSpeed, formatSpeed, loadFx, saveFx } from "../wheelsettings.js";
+import { MODES, WHEEL_MAX_ITEMS, addItem, loadWheel, pickIndex, saveWheel } from "../wheellist.js";
+import { createPlannedList } from "../wheelplanned.js";
+import { loadFx } from "../wheelsettings.js";
 import { fill, h } from "../util.js";
-
-const SVG = (body) => `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
-const SPEAKER = '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>';
-const ICON_VOLUME = SVG(`${SPEAKER}<path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>`);
-const ICON_CHEVRON = '<svg class="wheel-dock-chevron" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>';
-const ICON_TRASH = SVG('<polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>').replace('width="24" height="24"', 'width="16" height="16"');
-const ICON_MUTED = SVG(`${SPEAKER}<line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line>`);
 
 /**
  * «Рулетка»: колесо выбирает случайный тайтл. Список — либо свой (тайтлы из поиска по каталогу),
  * либо автоматически из «Хочу посмотреть».
  */
 const IDLE_DEG_PER_SEC = 4; // скорость холостого хода колеса
-const NEON_EXIT_MS = 520; // сколько гаснет неон при выключении (см. wheel-neon-*-out в wheel.css)
 const OPEN_DELAY_MS = 600; // пауза между остановкой колеса и открытием карточки
 const CONFETTI_OPEN_DELAY_MS = 1600; // с конфетти пауза дольше, чтобы залп успел увидеть, пока карточка не закрыла колесо
-
-/** Кнопка-переключатель настройки (как showcase-filter-btn в Film Roulette). onToggle получает новое значение. */
-function fxToggle(label, pressed, onToggle) {
-  const btn = h("button", { class: `wheel-fx-btn${pressed ? " active" : ""}`, type: "button", "aria-pressed": String(pressed) }, label);
-  btn.addEventListener("click", () => {
-    const on = btn.getAttribute("aria-pressed") !== "true";
-    btn.setAttribute("aria-pressed", String(on));
-    btn.classList.toggle("active", on);
-    btn.classList.remove("fx-toggle-pop");
-    void btn.offsetWidth;
-    btn.classList.add("fx-toggle-pop");
-    onToggle(on);
-  });
-  btn.addEventListener("animationend", () => btn.classList.remove("fx-toggle-pop"));
-  return btn;
-}
 
 export function renderWheel(root) {
   const state = loadWheel();
   const fx = loadFx(); // скорость вращения, неон, конфетти
   let stopConfetti = null; // убирает идущее конфетти
-  let neonExitTimer = 0;
   let rotation = 0; // текущий угол колеса, чтобы повторный запуск продолжал с того же места
   let spinning = null; // { cancel } идущего вращения
   let winner = null; // последний выпавший тайтл
   let openTimer = 0; // таймер автоматического открытия карточки после остановки колеса
-  let planned = { status: "idle", items: [], total: 0, error: "" }; // «Хочу посмотреть» для режима planned
-  let plannedRequest = null;
-  let plannedCache = null; // { key, items, total }: уже загруженное колесо «Хочу посмотреть», чтобы переключение туда-обратно не мигало
+  // «Хочу посмотреть» для режима planned: загрузка, выборка и кэш живут в wheelplanned.js.
+  const plannedList = createPlannedList({
+    onLoading: () => repaint(),
+    onSettled: () => {
+      if (state.mode === "planned" && !spinning) repaint();
+    },
+  });
   let lastTitles = []; // что было нарисовано на колесе в прошлый раз: пока грузится список, колесо не пустеет
 
   const canvas = h("canvas", { class: "wheel-canvas", "aria-hidden": "true" });
@@ -75,32 +56,7 @@ export function renderWheel(root) {
     h("span", { class: "wheel-dock-heading" }, h("span", null, "Настройки рулетки"), summary),
   );
   dockToggle.insertAdjacentHTML("beforeend", ICON_CHEVRON);
-  // Скорость вращения: число секунд, применяется со следующего запуска.
-  const speedInput = h("input", {
-    class: "wheel-speed-input",
-    type: "number",
-    inputmode: "decimal",
-    min: SPEED_MIN,
-    max: SPEED_MAX,
-    step: SPEED_STEP,
-    value: formatSpeed(fx.speed),
-    id: "wheel-speed",
-    onchange: commitSpeed,
-    onblur: commitSpeed,
-    onkeydown: (e) => {
-      if (e.key === "Enter") {
-        commitSpeed();
-        speedInput.blur();
-      }
-    },
-  });
-  const speedRow = h("div", { class: "wheel-speed" }, h("label", { for: "wheel-speed" }, "⏱ Скорость колеса"), speedInput, h("span", { class: "wheel-speed-unit" }, "сек"));
-  const neonBtn = fxToggle("✨ Неон", fx.neon, setNeon);
-  const confettiBtn = fxToggle("🎊 Конфетти", fx.confetti, (on) => {
-    fx.confetti = on;
-    saveFx(fx);
-    if (!on) stopConfetti?.();
-  });
+  const fxPanel = wheelFxPanel({ fx, holder, onConfettiOff: () => stopConfetti?.() });
   const dockBody = h(
     "div",
     { class: "wheel-dock-body" },
@@ -110,8 +66,8 @@ export function renderWheel(root) {
       h("p", { class: "wheel-dock-caption" }, "Откуда брать тайтлы"),
       modeToggle.el,
       h("p", { class: "wheel-dock-caption" }, "Эффекты и скорость"),
-      h("div", { class: "wheel-fx-row" }, confettiBtn, neonBtn),
-      speedRow,
+      fxPanel.fxRow,
+      fxPanel.speedRow,
     ),
   );
   const dock = h("div", { class: "wheel-dock" }, dockToggle, dockBody, spinBtn);
@@ -158,24 +114,7 @@ export function renderWheel(root) {
   );
 
   /** Тайтлы, которые сейчас на колесе. */
-  const items = () => (state.mode === "planned" ? planned.items : state.items);
-
-  function commitSpeed() {
-    fx.speed = clampSpeed(parseFloat(speedInput.value.replace(",", ".")), fx.speed);
-    speedInput.value = formatSpeed(fx.speed);
-    saveFx(fx);
-  }
-
-  /** Неон включается плавно; при выключении на время гаснет через класс --neon-exit. */
-  function setNeon(on) {
-    fx.neon = on;
-    saveFx(fx);
-    clearTimeout(neonExitTimer);
-    holder.classList.toggle("wheel-holder--neon", on);
-    holder.classList.toggle("wheel-holder--classic", !on);
-    holder.classList.toggle("wheel-holder--neon-exit", !on);
-    if (!on) neonExitTimer = setTimeout(() => holder.classList.remove("wheel-holder--neon-exit"), NEON_EXIT_MS);
-  }
+  const items = () => (state.mode === "planned" ? plannedList.state.items : state.items);
 
   /** Стрелка дёргается, когда колесо проходит очередной сегмент. */
   function flickPointer() {
@@ -205,7 +144,7 @@ export function renderWheel(root) {
     state.mode = mode;
     saveWheel(state);
     resetResult();
-    if (mode === "planned") loadPlanned();
+    if (mode === "planned") plannedList.load();
     repaint();
   }
 
@@ -213,32 +152,6 @@ export function renderWheel(root) {
     winner = null;
     clearTimeout(openTimer);
     result.replaceChildren();
-  }
-
-  async function loadPlanned() {
-    plannedRequest?.abort();
-    const ids = store.plannedIds();
-    const key = ids.join(",");
-    if (plannedCache?.key === key) {
-      // Тот же список, что уже грузили: показываем его сразу и с теми же тайтлами на колесе.
-      planned = { status: "ready", items: plannedCache.items, total: plannedCache.total, error: "" };
-      return;
-    }
-    planned = { status: ids.length ? "loading" : "ready", items: [], total: ids.length, error: "" };
-    if (!ids.length) return;
-    const request = new AbortController();
-    plannedRequest = request;
-    repaint();
-    try {
-      const data = await api.titles(ids, request.signal);
-      const all = data.items.map(cleanItem).filter(Boolean);
-      planned = { status: "ready", items: sample(all, WHEEL_PLANNED_MAX, pickIndex), total: all.length, error: "" };
-      plannedCache = { key, items: planned.items, total: planned.total };
-    } catch (err) {
-      if (err.name === "AbortError") return;
-      planned = { status: "error", items: [], total: ids.length, error: err.message };
-    }
-    if (state.mode === "planned" && !spinning) repaint();
   }
 
   function toggleDock() {
@@ -249,9 +162,9 @@ export function renderWheel(root) {
 
   function emptyText() {
     if (state.mode === "custom") return "Найдите аниме в поле выше и добавьте хотя бы два тайтла, чтобы крутить.";
-    if (planned.status === "loading") return "Загружаем «Хочу посмотреть»…";
-    if (planned.status === "error") return `Не удалось загрузить список: ${planned.error}`;
-    if (!planned.total) return "В «Хочу посмотреть» пока пусто. Отмечайте тайтлы закладкой на карточках, и они появятся здесь.";
+    if (plannedList.state.status === "loading") return "Загружаем «Хочу посмотреть»…";
+    if (plannedList.state.status === "error") return `Не удалось загрузить список: ${plannedList.state.error}`;
+    if (!plannedList.state.total) return "В «Хочу посмотреть» пока пусто. Отмечайте тайтлы закладкой на карточках, и они появятся здесь.";
     return "Для рулетки нужно хотя бы два тайтла в «Хочу посмотреть».";
   }
 
@@ -272,11 +185,11 @@ export function renderWheel(root) {
     const titles = shown.map((x) => x.title);
     if (titles.length) lastTitles = titles;
     // Пока список грузится, оставляем на колесе прежние сегменты (приглушённые), а не рисуем пустое колесо.
-    const loading = state.mode === "planned" && planned.status === "loading";
+    const loading = state.mode === "planned" && plannedList.state.status === "loading";
     drawWheel(canvas, loading && lastTitles.length ? lastTitles : titles, highlight);
     holder.classList.toggle("wheel-holder--loading", loading && lastTitles.length > 0);
     modeToggle.set(state.mode, Boolean(spinning));
-    const n2 = state.mode === "custom" ? `${n} из ${WHEEL_MAX_ITEMS}` : planned.status === "ready" ? `${planned.total}` : "…";
+    const n2 = state.mode === "custom" ? `${n} из ${WHEEL_MAX_ITEMS}` : plannedList.state.status === "ready" ? `${plannedList.state.total}` : "…";
     summary.textContent = `${MODES[state.mode]} · ${n2}`;
     customOnly.hidden = !custom;
     clearMenu.hidden = !custom;
@@ -287,9 +200,9 @@ export function renderWheel(root) {
       note.textContent = "";
       count.textContent = n ? `В списке: ${n} из ${WHEEL_MAX_ITEMS}` : "Список пуст";
     } else {
-      const cut = planned.total > n && n > 0 ? ` В колесе ${n} случайных из ${planned.total}.` : "";
+      const cut = plannedList.state.total > n && n > 0 ? ` В колесе ${n} случайных из ${plannedList.state.total}.` : "";
       note.textContent = `Список берётся из «Хочу посмотреть» автоматически.${cut}`;
-      count.textContent = planned.status === "ready" && planned.total ? `В «Хочу посмотреть»: ${planned.total}` : "";
+      count.textContent = plannedList.state.status === "ready" && plannedList.state.total ? `В «Хочу посмотреть»: ${plannedList.state.total}` : "";
     }
     if (n < 2) current.textContent = emptyText();
     else if (!spinning && !winner) showUnderPointer();
@@ -391,25 +304,18 @@ export function renderWheel(root) {
     openTimer = setTimeout(() => openCard(item.id), openDelay);
   }
 
-  // Холостой ход: пока колесо никто не крутит и нет результата, оно медленно ползёт, как плёнка.
-  let idleFrame = 0;
-  let idleLast = 0;
-  function idleTick(now) {
-    const dt = Math.min(0.1, (now - idleLast) / 1000);
-    idleLast = now;
-    if (!spinning && !winner && !document.hidden) {
-      rotation = (rotation + IDLE_DEG_PER_SEC * dt) % 360;
+  // Холостой ход: пока колесо никто не крутит и нет результата, оно медленно ползёт.
+  const stopIdle = startWheelIdle({
+    degPerSec: IDLE_DEG_PER_SEC,
+    canDrift: () => !spinning && !winner && !document.hidden,
+    onDrift: (deg) => {
+      rotation = (rotation + deg) % 360;
       canvas.style.transform = `rotate(${rotation}deg)`;
       showUnderPointer();
-    }
-    idleFrame = requestAnimationFrame(idleTick);
-  }
-  if (!prefersReducedMotion()) {
-    idleLast = performance.now();
-    idleFrame = requestAnimationFrame(idleTick);
-  }
+    },
+  });
 
-  if (state.mode === "planned") loadPlanned();
+  if (state.mode === "planned") plannedList.load();
   paintMute();
   repaint();
   const stopFit = fitWheel({ holder, stage, dockBody });
@@ -417,12 +323,11 @@ export function renderWheel(root) {
   return {
     cleanup: () => {
       stopFit();
-      cancelAnimationFrame(idleFrame);
+      stopIdle();
       clearTimeout(openTimer);
-      clearTimeout(neonExitTimer);
       stopConfetti?.();
       spinning?.cancel();
-      plannedRequest?.abort();
+      plannedList.abort();
     },
   };
 }

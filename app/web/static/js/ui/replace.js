@@ -1,4 +1,5 @@
 import { api } from "../api.js";
+import { latestRequest } from "../loader.js";
 import { store } from "../store.js";
 import { clear, debounce, fill, formatStart, h } from "../util.js";
 import { coverEl } from "./card.js";
@@ -11,7 +12,7 @@ import { closeDialogAnimated } from "./motion.js";
 export function replaceDialog({ current, query }) {
   return new Promise((resolve) => {
     const previous = document.activeElement;
-    let controller = null;
+    const latest = latestRequest();
     let lastQuery = "";
     let picked = null;
 
@@ -54,20 +55,17 @@ export function replaceDialog({ current, query }) {
       const q = input.value.trim();
       if (q.length < 2 || q === lastQuery) return;
       lastQuery = q;
-      controller?.abort();
-      controller = new AbortController();
       fill(results, h("div", { class: "sug-note", role: "status" }, "Ищем…"));
-      try {
-        const data = await api.search(q, true, controller.signal);
-        if (q !== lastQuery) return;
-        const items = data.items.filter((it) => it.id !== current.id);
-        clear(results);
-        if (items.length) results.append(...items.slice(0, 10).map(row));
-        else results.append(h("div", { class: "sug-note" }, "Ничего не нашлось. Попробуйте другое название."));
-      } catch (err) {
-        if (err.name === "AbortError") return;
-        fill(results, h("div", { class: "sug-note", role: "alert" }, err.message));
-      }
+      await latest.run(
+        (signal) => api.search(q, true, signal),
+        (data) => {
+          const items = data.items.filter((it) => it.id !== current.id);
+          clear(results);
+          if (items.length) results.append(...items.slice(0, 10).map(row));
+          else results.append(h("div", { class: "sug-note" }, "Ничего не нашлось. Попробуйте другое название."));
+        },
+        (err) => fill(results, h("div", { class: "sug-note", role: "alert" }, err.message)),
+      );
     }
     const run = debounce(search, 450);
     input.addEventListener("input", run);
@@ -93,7 +91,7 @@ export function replaceDialog({ current, query }) {
       ),
     );
     dlg.addEventListener("close", () => {
-      controller?.abort();
+      latest.abort();
       run.cancel();
       const chosen = dlg.returnValue === "ok" ? picked : null;
       dlg.remove();

@@ -1,17 +1,12 @@
 import { store, MAX_WATCHED } from "../store.js";
 import { formatEpisodes, formatStart, h, safeColor, untilText } from "../util.js";
+import { ICON_BOOKMARK, ICON_BOOKMARK_ON, ICON_CHECK, ICON_EYE } from "./icons.js";
 import { toast } from "./toast.js";
-
-const EYE = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>`;
-const CHECK = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
-
-const BOOKMARK = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>`;
-const BOOKMARK_ON = BOOKMARK.replace('fill="none"', 'fill="currentColor"');
 
 function icon(svg) {
   const span = document.createElement("span");
   span.className = "icon";
-  span.innerHTML = svg; // статичная разметка из констант выше, данных API здесь нет
+  span.innerHTML = svg; // статичная разметка из ui/icons.js, данных API здесь нет
   return span;
 }
 
@@ -55,7 +50,7 @@ function paintPlanButton(btn) {
   const name = btn.dataset.title || "";
   btn.hidden = store.has(id);
   btn.setAttribute("aria-pressed", on ? "true" : "false");
-  btn.replaceChildren(icon(on ? BOOKMARK_ON : BOOKMARK));
+  btn.replaceChildren(icon(on ? ICON_BOOKMARK_ON : ICON_BOOKMARK));
   if (btn.classList.contains("plan-text")) btn.append(on ? "В списке «Хочу посмотреть»" : "Хочу посмотреть");
   btn.setAttribute("aria-label", on ? `Убрать из «Хочу посмотреть»: ${name}` : `Добавить в «Хочу посмотреть»: ${name}`);
   btn.title = on ? "В списке «Хочу посмотреть» — нажмите, чтобы убрать" : "Хочу посмотреть";
@@ -65,7 +60,7 @@ function paintWatchButton(btn) {
   const on = store.has(Number(btn.dataset.watchId));
   const variant = btn.classList.contains("watch-text");
   btn.setAttribute("aria-pressed", on ? "true" : "false");
-  btn.replaceChildren(icon(on ? CHECK : EYE));
+  btn.replaceChildren(icon(on ? ICON_CHECK : ICON_EYE));
   if (variant) btn.append(on ? "Просмотрено" : "Отметить просмотренным");
   const name = btn.dataset.title || "";
   btn.setAttribute("aria-label", on ? `Убрать из просмотренного: ${name}` : `Отметить просмотренным: ${name}`);

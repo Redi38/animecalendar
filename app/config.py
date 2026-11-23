@@ -46,4 +46,11 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
+def watch_template(raw: str) -> str:
+    """Шаблон ссылки «Смотреть онлайн» отдаём, только если это http(s)-адрес с местом под название."""
+    url = (raw or "").strip()
+    ok = url.startswith(("https://", "http://")) and "{q}" in url
+    return url if ok else ""
+
+
 settings = Settings()

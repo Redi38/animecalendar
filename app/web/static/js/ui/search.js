@@ -1,4 +1,5 @@
 import { api } from "../api.js";
+import { latestRequest } from "../loader.js";
 import { clear, debounce, fill, formatStart, h } from "../util.js";
 import { coverEl, planButton, watchButton } from "./card.js";
 import { groupSection } from "./group.js";
@@ -8,7 +9,7 @@ export function initSearch() {
   const input = document.getElementById("search-input");
   const panel = document.getElementById("search-panel");
   const root = document.getElementById("search");
-  let controller = null;
+  const latest = latestRequest();
   let lastQuery = "";
 
   function open() {
@@ -18,7 +19,7 @@ export function initSearch() {
   function close() {
     panel.hidden = true;
     input.setAttribute("aria-expanded", "false");
-    controller?.abort();
+    latest.abort();
   }
 
   function row(item) {
@@ -46,30 +47,27 @@ export function initSearch() {
       return;
     }
     lastQuery = q;
-    controller?.abort();
-    controller = new AbortController();
     open();
     fill(panel, h("div", { class: "sug-note", role: "status" }, "Ищем…"));
-    try {
-      const data = await api.search(q, false, controller.signal);
-      if (q !== lastQuery) return;
-      clear(panel);
-      if (!data.items.length) {
-        panel.append(h("div", { class: "sug-note" }, "Среди загруженных тайтлов ничего нет."));
-      } else {
-        // Сначала франшиза (свёрнутая группа: сезоны, фильмы, OVA), потом сами найденные тайтлы.
-        const groups = (data.groups || []).slice(0, 2);
-        for (const g of groups) panel.append(groupSection({ group: g, items: g.members, renderItem: row, compact: true }));
-        if (groups.length) panel.append(h("div", { class: "sug-heading" }, "Тайтлы"));
-        panel.append(...data.items.slice(0, 8).map(row));
-      }
-      panel.append(
-        h("a", { class: "sug-all", href: `#/search/${encodeURIComponent(q)}`, onclick: close }, `Искать «${q}» везде`),
-      );
-    } catch (err) {
-      if (err.name === "AbortError") return;
-      fill(panel, h("div", { class: "sug-note", role: "alert" }, err.message));
-    }
+    await latest.run(
+      (signal) => api.search(q, false, signal),
+      (data) => {
+        clear(panel);
+        if (!data.items.length) {
+          panel.append(h("div", { class: "sug-note" }, "Среди загруженных тайтлов ничего нет."));
+        } else {
+          // Сначала франшиза (свёрнутая группа: сезоны, фильмы, OVA), потом сами найденные тайтлы.
+          const groups = (data.groups || []).slice(0, 2);
+          for (const g of groups) panel.append(groupSection({ group: g, items: g.members, renderItem: row, compact: true }));
+          if (groups.length) panel.append(h("div", { class: "sug-heading" }, "Тайтлы"));
+          panel.append(...data.items.slice(0, 8).map(row));
+        }
+        panel.append(
+          h("a", { class: "sug-all", href: `#/search/${encodeURIComponent(q)}`, onclick: close }, `Искать «${q}» везде`),
+        );
+      },
+      (err) => fill(panel, h("div", { class: "sug-note", role: "alert" }, err.message)),
+    );
   }, 250);
 
   input.addEventListener("input", run);
